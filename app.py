@@ -13,15 +13,12 @@ from src.database import get_engine, init_db, read_sql_df
 from src.neuroguia_engine import SessionContext, get_ng_engine
 
 st.set_page_config(
-    page_title="NeuroGuía v09",
+    page_title="NeuroGuía v10",
     page_icon="🧠",
     layout="wide",
-    initial_sidebar_state="expanded",
+    initial_sidebar_state="collapsed",
 )
 
-# --------------------------
-# Inicialización
-# --------------------------
 init_db()
 user = require_login() or {"is_logged_in": False, "email": "", "name": "Usuario"}
 db_engine = get_engine()
@@ -49,9 +46,6 @@ for key, default in {
 SHOW_DEBUG_PANEL = bool(st.secrets.get("SHOW_DEBUG_PANEL", False))
 
 
-# --------------------------
-# Datos
-# --------------------------
 def upsert_usuario(data: dict) -> None:
     with db_engine.begin() as conn:
         conn.execute(
@@ -249,7 +243,7 @@ def save_interaction(prompt: str, result, rol: str, estado: str) -> None:
                 "utilidad_percibida": None,
                 "requiere_revision": False,
                 "observaciones_revision": None,
-                "version_motor": "v09",
+                "version_motor": "v10",
             },
         )
 
@@ -263,106 +257,71 @@ def start_new_session() -> None:
     st.session_state.session_started = False
 
 
-# --------------------------
-# Estilo
-# --------------------------
 st.markdown(
     """
     <style>
     .stApp {
-        background: linear-gradient(180deg, #fcfbff 0%, #f7f5ff 100%);
+        background: linear-gradient(180deg, #fcfbff 0%, #f7f4ff 100%);
     }
-    .main-shell {
-        background: rgba(255,255,255,0.72);
+    .block-container {
+        max-width: 900px;
+        padding-top: 1.6rem;
+        padding-bottom: 2rem;
+    }
+    .shell {
+        background: rgba(255,255,255,0.82);
         border: 1px solid #ece7ff;
-        border-radius: 28px;
-        padding: 26px 26px 18px 26px;
-        box-shadow: 0 12px 30px rgba(100, 74, 170, 0.06);
-        margin-bottom: 16px;
+        border-radius: 26px;
+        padding: 22px 22px 14px 22px;
+        box-shadow: 0 14px 34px rgba(90, 65, 155, 0.06);
+        margin-bottom: 14px;
     }
-    .hero-tag {
+    .brand {
         display:inline-block;
-        padding: 7px 12px;
+        padding: 6px 12px;
         border-radius: 999px;
-        background:#efe8ff;
+        background:#f1eaff;
         color:#6941c6;
-        font-size:0.9rem;
-        font-weight:600;
-        margin-bottom:12px;
-    }
-    .hero-title {
-        font-size: 2.35rem;
-        font-weight: 800;
-        margin-bottom: 4px;
-        color: #2c233f;
-    }
-    .hero-sub {
-        font-size: 1.04rem;
-        color: #5d5870;
-        line-height: 1.55;
-        margin-bottom: 8px;
-    }
-    .soft-note {
-        border: 1px dashed #d7c9ff;
-        background: #fdfcff;
-        border-radius: 18px;
-        padding: 14px 16px;
-        color: #4f4962;
-        margin-top: 14px;
-        margin-bottom: 12px;
-    }
-    .mini-card {
-        background:#ffffff;
-        border:1px solid #ece7ff;
-        border-radius:18px;
-        padding:14px 16px;
-        box-shadow: 0 4px 14px rgba(88, 75, 140, 0.04);
-        margin-bottom:12px;
-    }
-    .mini-label {
-        font-size:0.86rem;
-        color:#6c6580;
-        margin-bottom:2px;
-    }
-    .mini-value {
-        font-size:1.1rem;
+        font-size:0.88rem;
         font-weight:700;
-        color:#2f2642;
+        margin-bottom:10px;
+    }
+    .title {
+        font-size: 2.2rem;
+        font-weight: 800;
+        color:#2e2540;
+        margin-bottom:4px;
+    }
+    .subtitle {
+        color:#615b74;
+        line-height:1.55;
+        font-size:1rem;
+        margin-bottom:10px;
+    }
+    .privacy {
+        margin-top:10px;
+        color:#726b86;
+        font-size:0.92rem;
     }
     .stChatMessage {
         background: transparent !important;
     }
-    .block-container {
-        padding-top: 2rem;
-        padding-bottom: 2rem;
-    }
-    .small-privacy {
-        color:#6f6982;
-        font-size:0.92rem;
-    }
-    .sidebar-card {
-        background:#ffffff;
-        border:1px solid #ece7ff;
-        border-radius:18px;
-        padding:12px 14px;
-        margin-bottom:14px;
+    section[data-testid="stSidebar"] {
+        background: #fcfbff;
     }
     </style>
     """,
     unsafe_allow_html=True,
 )
 
-# --------------------------
-# Perfil
-# --------------------------
 user_df = load_profile()
 perfil_existente = not user_df.empty
 
 with st.sidebar:
-    st.markdown("### Perfil de usuario")
+    st.markdown("### Perfil")
     if perfil_existente:
         perfil = user_df.iloc[0].to_dict()
-        st.success(f"Perfil activo: {perfil.get('rol_usuario', 'usuario')}")
+        st.success(f"Activo: {perfil.get('rol_usuario', 'usuario')}")
         with st.expander("Editar perfil", expanded=False):
             with st.form("form_editar_perfil"):
                 opciones_rol = [
@@ -386,12 +345,11 @@ with st.sidebar:
                 red_edit = st.selectbox(
                     "¿Cuentas con red de apoyo?",
                     ["sí", "no", "parcialmente"],
-                    index=["sí", "no", "parcialmente"].index(
-                        perfil.get("red_apoyo", "sí")
-                    ) if perfil.get("red_apoyo", "sí") in ["sí", "no", "parcialmente"] else 0,
+                    index=["sí", "no", "parcialmente"].index(perfil.get("red_apoyo", "sí"))
+                    if perfil.get("red_apoyo", "sí") in ["sí", "no", "parcialmente"] else 0,
                 )
                 consentimiento_edit = st.checkbox(
-                    "Si el uso corresponde a una persona adolescente, confirmo que existe acompañamiento o resguardo adulto cuando aplique.",
+                    "Si el uso corresponde a una persona adolescente, confirmo acompañamiento adulto cuando aplique.",
                     value=bool(perfil.get("consentimiento_menor", False)),
                 )
                 guardar_edit = st.form_submit_button("Guardar cambios")
@@ -423,7 +381,7 @@ with st.sidebar:
             estado_new = st.text_input("Estado o región", "Hidalgo")
             red_new = st.selectbox("¿Cuentas con red de apoyo?", ["sí", "no", "parcialmente"])
             consentimiento_new = st.checkbox(
-                "Si el uso corresponde a una persona adolescente, confirmo que existe acompañamiento o resguardo adulto cuando aplique."
+                "Si el uso corresponde a una persona adolescente, confirmo acompañamiento adulto cuando aplique."
             )
             guardar_new = st.form_submit_button("Guardar perfil y continuar")
         if guardar_new:
@@ -441,7 +399,7 @@ with st.sidebar:
                     "updated_at": now,
                 }
             )
-            st.success("Perfil guardado. Ya puedes empezar.")
+            st.success("Perfil guardado. Ya puedes comenzar.")
             st.rerun()
         st.stop()
 
@@ -453,14 +411,14 @@ display_name = (perfil.get("nombre_mostrado") or "").strip()
 user_memory = load_user_memory()
 
 with st.sidebar:
-    with st.expander("Resumen", expanded=True):
+    with st.expander("Resumen", expanded=False):
         st.write(f"**Rol:** {rol}")
         if display_name:
             st.write(f"**Nombre:** {display_name}")
-        st.write(f"**Estado/región:** {estado}")
+        st.write(f"**Estado:** {estado}")
         st.write(f"**Red de apoyo:** {red}")
 
-    with st.expander("Cierre breve de sesión", expanded=False):
+    with st.expander("Cierre de sesión", expanded=False):
         percepcion = st.radio(
             "Después de esta conversación, ¿te sientes?",
             ["mejor", "igual", "peor"],
@@ -473,46 +431,30 @@ with st.sidebar:
         )
         col_a, col_b = st.columns(2)
         with col_a:
-            if st.button("Guardar cierre"):
+            if st.button("Guardar"):
                 ensure_session_started(rol, estado)
                 save_session_feedback(percepcion, utilidad)
-                st.success("Gracias. Quedó guardado.")
+                st.success("Quedó guardado.")
         with col_b:
-            if st.button("Nueva sesión"):
+            if st.button("Nueva"):
                 start_new_session()
                 st.rerun()
 
-# --------------------------
-# Cabecera principal
-# --------------------------
 name_fragment = f", {display_name}" if display_name else ""
-st.markdown('<div class="main-shell">', unsafe_allow_html=True)
-st.markdown('<div class="hero-tag">NeuroGuía v09 · acompañamiento conversacional</div>', unsafe_allow_html=True)
-st.markdown('<div class="hero-title">NeuroGuía v09</div>', unsafe_allow_html=True)
+st.markdown('<div class="shell">', unsafe_allow_html=True)
+st.markdown('<div class="brand">NeuroGuía v10 · apoyo conversacional</div>', unsafe_allow_html=True)
+st.markdown('<div class="title">NeuroGuía</div>', unsafe_allow_html=True)
 st.markdown(
-    f'<div class="hero-sub">Hola{name_fragment}. Este espacio busca acompañarte con calidez, claridad y pasos posibles. '
-    'No necesitas hablar “perfecto”: puedes escribir tal como te salga.</div>',
+    f'<div class="subtitle">Hola{name_fragment}. Este espacio busca acompañarte con calidez, claridad y pasos posibles. '
+    'Puedes escribir como hablas, sin seguir un formato especial.</div>',
     unsafe_allow_html=True,
 )
-
-c1, c2, c3 = st.columns(3)
-with c1:
-    st.markdown('<div class="mini-card"><div class="mini-label">Perfil activo</div><div class="mini-value">' + rol + '</div></div>', unsafe_allow_html=True)
-with c2:
-    st.markdown('<div class="mini-card"><div class="mini-label">Estado / región</div><div class="mini-value">' + estado + '</div></div>', unsafe_allow_html=True)
-with c3:
-    st.markdown('<div class="mini-card"><div class="mini-label">Red de apoyo</div><div class="mini-value">' + red + '</div></div>', unsafe_allow_html=True)
-
 st.markdown(
-    '<div class="soft-note"><strong>Privacidad y cuidado.</strong> Este espacio está pensado para acompañar y orientar. '
-    'No sustituye atención clínica ni evaluación profesional.</div>',
+    '<div class="privacy"><strong>Privacidad y cuidado.</strong> Este espacio orienta y acompaña; no sustituye atención clínica ni evaluación profesional.</div>',
     unsafe_allow_html=True,
 )
 st.markdown("</div>", unsafe_allow_html=True)
 
-# --------------------------
-# Chat
-# --------------------------
 if not st.session_state.messages:
     saludo_inicial = ng_engine.build_welcome_message(
         display_name=display_name,
@@ -557,8 +499,7 @@ if prompt:
     except Exception as exc:
         with st.chat_message("assistant"):
             st.error(
-                "Perdón, algo se atoró al procesar tu mensaje. "
-                "Puedes intentar de nuevo en unos segundos."
+                "Perdón, algo se atoró al procesar tu mensaje. Intenta de nuevo en unos segundos."
             )
         if SHOW_DEBUG_PANEL:
             st.exception(exc)

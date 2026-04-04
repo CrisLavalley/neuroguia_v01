@@ -12,13 +12,11 @@ from sqlalchemy.engine import Engine
 from sqlalchemy.pool import NullPool
 
 BASE = Path(__file__).resolve().parents[1]
-LOCAL_DB = BASE / "data" / "runtime" / "neuroguia_v09.db"
+LOCAL_DB = BASE / "data" / "runtime" / "neuroguia_v10.db"
 LOCAL_DB.parent.mkdir(parents=True, exist_ok=True)
 
 
 def get_database_url() -> str:
-    # Se prioriza SQLite local para mantener la app estable en despliegues sencillos.
-    # Si se desea usar PostgreSQL, definir DATABASE_URL o NEUROGUIA_DATABASE_URL.
     return (
         st.secrets.get("DATABASE_URL")
         or os.getenv("NEUROGUIA_DATABASE_URL")

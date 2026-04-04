@@ -59,7 +59,8 @@ class NeuroGuiaEngine:
             "diagnóstico", "diagnostico", "medicación", "medicacion", "medicamento",
             "receta", "dosis", "terapia específica", "terapia especifica",
             "pastilla", "fármaco", "farmaco", "tratamiento", "medicar",
-            "psiquiatra", "neurologo", "neurólogo"
+            "psiquiatra", "neurólogo", "neurologo", "antidepresivo",
+            "ansiolítico", "ansiolitico"
         ]
         self.high_risk_patterns = [
             "suicid", "se quiere hacer daño", "se quiere lastimar", "arma",
@@ -67,32 +68,30 @@ class NeuroGuiaEngine:
         ]
         self.web_info_patterns = [
             "qué es", "que es", "explícame", "explicame", "información sobre",
-            "informacion sobre", "háblame de", "hablame de", "quién es", "quien es"
+            "informacion sobre", "háblame de", "hablame de", "quién es",
+            "quien es", "qué significa", "que significa"
         ]
 
-    # --------------------------
-    # Entrada pública
-    # --------------------------
     def build_welcome_message(
         self,
         display_name: str = "",
         role: str = "",
         user_memory: list[dict[str, Any]] | None = None,
     ) -> str:
-        name_part = f", {display_name}" if display_name else ""
-        role_text = self._role_phrase(role)
         memory = user_memory or []
         temas = [m.get("valor", "") for m in memory if m.get("categoria") == "tema_frecuente"]
-        gentle_memory = ""
+        memory_note = ""
         if temas:
-            frequent = Counter(temas).most_common(1)[0][0]
-            gentle_memory = f" Recuerdo que antes apareció el tema de **{self._topic_to_human(frequent)}**."
+            tema = self._topic_to_human(Counter(temas).most_common(1)[0][0])
+            memory_note = f" También recuerdo que antes apareció el tema de **{tema}**."
+
+        saludo = f"Hola, {display_name}." if display_name else "Hola."
+        role_phrase = self._role_phrase(role)
 
         return (
-            f"Hola{name_part}. Estoy aquí para acompañarte{role_text} y ayudarte a poner en palabras lo que estás viviendo."
-            f"{gentle_memory}\n\n"
-            "Puedes escribirme tal como te salga: una duda, una situación concreta, algo que te dolió hoy, o incluso una pregunta general. "
-            "Yo voy a responderte de forma cercana, útil y sin empujarte a seguir un formato rígido."
+            f"{saludo} Estoy aquí para acompañarte{role_phrase} con un tono claro, cercano y sin hacerte sentir en examen.{memory_note}\n\n"
+            "Puedes escribirme una situación concreta, una duda, algo que te dolió hoy o incluso una pregunta general. "
+            "Yo intento responderte de forma humana, útil y sin empujarte a seguir un patrón rígido."
         )
 
     def analyze(
@@ -136,9 +135,7 @@ class NeuroGuiaEngine:
         new_ctx = self._update_context(ctx, text, topic, intent)
         memory_updates = self._propose_memory_updates(lowered, topic, profile)
 
-        source_name = "motor_v09_memoria_rag"
-        if web_hit:
-            source_name = "motor_v09_memoria_rag_web"
+        fuente = "motor_v10_memoria_rag_web" if web_hit else "motor_v10_memoria_rag"
 
         combined_hits = list(rag_hits)
         if web_hit:
@@ -160,7 +157,7 @@ class NeuroGuiaEngine:
             filtro_clinico=clinical,
             protocolo=self._select_protocol(topic, clinical),
             respuesta=response,
-            fuente_respuesta=source_name,
+            fuente_respuesta=fuente,
             intent=intent,
             topic=topic,
             recurso_rag=combined_hits[:3],
@@ -168,9 +165,6 @@ class NeuroGuiaEngine:
             memory_updates=memory_updates,
         )
 
-    # --------------------------
-    # Detección
-    # --------------------------
     def _detect_topic(self, text: str, ctx: SessionContext, memory: list[dict[str, Any]]) -> str:
         if any(x in text for x in ["no me habla", "no quiere hablar", "encerró", "encerro", "callado", "shutdown", "se aisló", "se aislo"]):
             return "shutdown"
@@ -182,7 +176,11 @@ class NeuroGuiaEngine:
             return "sueno"
         if any(x in text for x in ["estres", "estrés", "agotada", "agotado", "rebasada", "rebasado", "cansada", "cansado", "ya no puedo"]):
             return "acompanamiento_cuidador"
-        if any(x in text for x in ["acercarme", "empatizar", "conectar", "cariñosos", "carinosos", "afecto", "vínculo", "vinculo", "relación", "relacion", "nietos", "hijos", "amistad", "confianza"]):
+        if any(x in text for x in [
+            "acercarme", "empatizar", "conectar", "cariñosos", "carinosos", "afecto",
+            "vínculo", "vinculo", "relación", "relacion", "nietos", "hijos",
+            "amistad", "confianza", "cercanía", "cercania", "me buscaran", "me buscaran"
+        ]):
             return "vinculo_familiar"
         if any(x in text for x in ["qué es", "que es", "explícame", "explicame", "información", "informacion", "háblame", "hablame"]):
             return "consulta_informativa"
@@ -196,22 +194,16 @@ class NeuroGuiaEngine:
     def _detect_intent(self, text: str, ctx: SessionContext) -> str:
         if self._needs_clinical_boundary(text):
             return "consulta_clinica"
-
         if self._should_use_web(text, "permitida", "sin_crisis", "acompanamiento"):
             return "consulta_informativa"
-
         if any(x in text for x in ["cómo", "como", "qué hago", "que hago", "qué le digo", "que le digo", "qué puedo hacer", "que puedo hacer"]):
             return "orientacion_practica"
-
         if any(x in text for x in ["por qué", "por que", "quisiera entender", "quiero entender", "no entiendo"]):
             return "comprension"
-
         if any(x in text for x in ["me duele", "me siento", "me pone triste", "me lastima", "me preocupa", "quisiera que se acercaran"]):
             return "acompanamiento_emocional"
-
         if text in ["sí", "si", "ok", "vale", "aja", "ajá", "bien"] or len(text.split()) <= 4:
             return "seguimiento" if ctx.case_active else "acompanamiento"
-
         return "acompanamiento"
 
     def _detect_emotion(self, text: str) -> str:
@@ -281,9 +273,6 @@ class NeuroGuiaEngine:
     def _clean_web_query(self, text: str) -> str:
         return text.replace("¿", "").replace("?", "").strip()
 
-    # --------------------------
-    # Respuesta
-    # --------------------------
     def _build_response(
         self,
         text: str,
@@ -320,18 +309,18 @@ class NeuroGuiaEngine:
                 f"{opening}\n\n"
                 f"Te comparto una explicación breve sobre **{web_hit['title']}**:\n\n"
                 f"{web_hit['summary']}\n\n"
-                "Puedo ayudarte a aterrizar esta información a tu situación concreta, siempre cuidando mantenernos en una orientación no clínica."
+                "Si quieres, después te ayudo a aterrizar esta información a tu caso concreto, manteniéndonos en una orientación no clínica."
             )
 
         if topic == "vinculo_familiar":
             return self._respond_vinculo_familiar(opening, text, role)
 
         if topic == "shutdown":
+            frase = '“No necesitas hablar ahorita. Solo quiero que sepas que aquí estoy.”'
             return (
                 f"{opening}\n\n"
                 "Si en ese momento la otra persona se cierra o deja de hablar, suele ayudar más bajar la presión que insistir. "
-                "Puedes probar con una presencia tranquila y una frase corta, por ejemplo: "
-                ""No necesitas hablar ahorita. Solo quiero que sepas que aquí estoy."\n\n"
+                f"Puedes probar con una presencia tranquila y una frase corta, por ejemplo: {frase}\n\n"
                 "Si quieres, dime qué pasó justo antes y te ayudo a pensar cómo volver a acercarte sin forzar."
             )
 
@@ -340,7 +329,7 @@ class NeuroGuiaEngine:
                 f"{opening}\n\n"
                 "Cuando hay un desborde fuerte, conviene priorizar seguridad y poca estimulación. "
                 "Más que explicar o corregir en ese instante, ayuda hablar poco, bajar el tono y dejar la explicación para después.\n\n"
-                "Si quieres, puedo ayudarte a pensar qué hacer durante el momento y qué hacer ya cuando todo se calme."
+                "Si quieres, puedo ayudarte a pensar qué hacer durante el momento y qué hacer cuando todo se calme."
             )
 
         if topic == "acompanamiento_cuidador":
@@ -348,14 +337,14 @@ class NeuroGuiaEngine:
                 f"{opening}\n\n"
                 "Hoy no necesitas resolver todo de una sola vez. A veces ayuda mucho elegir una sola prioridad para las próximas horas "
                 "y soltar, aunque sea por un rato, lo demás.\n\n"
-                "Si quieres, escríbeme qué es lo más pesado de hoy y lo ordenamos juntas o juntos paso por paso."
+                "Si quieres, escríbeme qué es lo más pesado de hoy y lo ordenamos paso por paso."
             )
 
         if topic == "escuela_inclusiva":
             return (
                 f"{opening}\n\n"
                 "Si esto tiene que ver con la escuela, suele servir separar tres cosas: qué pasó, qué necesidad apareció y qué ajuste concreto podría pedirse.\n\n"
-                "Si me cuentas la situación con un poquito más de detalle, te ayudo a redactar un siguiente paso claro y respetuoso."
+                "Si me cuentas un poco más, te ayudo a redactar un siguiente paso claro y respetuoso."
             )
 
         if topic == "sueno":
@@ -371,13 +360,13 @@ class NeuroGuiaEngine:
                 f"{opening}\n\n"
                 "Lo que sientes tiene sentido. No siempre es fácil llevar por dentro una mezcla de amor, preocupación, cansancio o tristeza "
                 "cuando una relación importante no se siente como uno quisiera.\n\n"
-                "No necesitas explicarlo de forma perfecta. Si quieres, puedo ayudarte a poner orden en lo que más te está pesando ahorita."
+                "No necesitas explicarlo perfecto. Si quieres, puedo ayudarte a poner orden en lo que más te pesa ahorita."
             )
 
         if intent == "orientacion_practica":
             return (
                 f"{opening}\n\n"
-                "Voy contigo a algo concreto. Cuéntame qué fue lo que pasó, qué te gustaría que ocurriera distinto y qué es lo que más te preocupa, "
+                "Voy contigo a algo concreto. Cuéntame qué pasó, qué te gustaría que ocurriera distinto y qué es lo que más te preocupa, "
                 "y te respondo con pasos realistas."
             )
 
@@ -413,9 +402,9 @@ class NeuroGuiaEngine:
         if any(x in text for x in ["que ellos se acercaran", "que se acercaran a mí", "que me buscaran", "cariñosos", "carinosos"]):
             return (
                 f"{opening}\n\n"
-                f"Es muy humano desear más cercanía {role_phrase}. A veces uno no está buscando algo enorme, sino pequeños gestos que hagan sentir vínculo.\n\n"
-                "Lo primero es no tomar toda la distancia como falta de cariño. En muchas personas, especialmente cuando están absorbidas por sus rutinas, su edad o su forma de ser, "
-                "el afecto no siempre sale de forma espontánea.\n\n"
+                f"Es muy humano desear más cercanía {role_phrase}. A veces una no está buscando algo enorme, sino pequeños gestos que hagan sentir vínculo.\n\n"
+                "Lo primero es no tomar toda la distancia como falta de cariño. En muchas personas, sobre todo cuando están absorbidas por su edad, sus rutinas o su forma de ser, "
+                "el afecto no siempre sale de manera espontánea.\n\n"
                 "Suele ayudar más abrir espacios pequeños y naturales que pedir cercanía directamente. Por ejemplo:\n"
                 "1. empezar con conversaciones cortas y amables sobre algo que les interese,\n"
                 "2. compartir un momento sencillo sin exigir que hablen mucho,\n"
@@ -474,9 +463,6 @@ class NeuroGuiaEngine:
         }
         return mapping.get(topic, topic.replace("_", " "))
 
-    # --------------------------
-    # Contexto y memoria
-    # --------------------------
     def _update_context(self, ctx: SessionContext, text: str, topic: str, intent: str) -> SessionContext:
         details = list(ctx.details_known)
         if text and text not in details:

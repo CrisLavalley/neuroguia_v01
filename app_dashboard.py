@@ -5,23 +5,20 @@ import streamlit as st
 
 from src.database import init_db, read_sql_df
 
-st.set_page_config(page_title="Dashboard NeuroGuía v09", page_icon="📊", layout="wide")
+st.set_page_config(page_title="Dashboard NeuroGuía v10", page_icon="📊", layout="wide")
 init_db()
 
 st.markdown(
     """
     <style>
     .stApp { background: linear-gradient(180deg, #fcfbff 0%, #f6f3ff 100%); }
-    .metric-wrap {
-        background:#fff; border:1px solid #ece7ff; border-radius:20px; padding:14px 16px;
-        box-shadow:0 5px 14px rgba(88, 75, 140, 0.05);
-    }
+    .block-container { padding-top: 1.5rem; padding-bottom: 2rem; }
     </style>
     """,
     unsafe_allow_html=True,
 )
 
-st.title("Dashboard NeuroGuía v09")
+st.title("Dashboard NeuroGuía")
 st.caption("Seguimiento del prototipo: uso, interacciones, memoria y mejora progresiva.")
 
 usuarios = read_sql_df("SELECT COUNT(*) AS total FROM usuarios")
@@ -31,11 +28,11 @@ memorias = read_sql_df("SELECT COUNT(*) AS total FROM memoria_usuario")
 registros_mejora = read_sql_df("SELECT COUNT(*) AS total FROM analitica_mejora")
 
 c1, c2, c3, c4, c5 = st.columns(5)
-c1.metric("Usuarios", int(usuarios.iloc[0]["total"]) if not usuarios.empty else 0)
-c2.metric("Sesiones", int(sesiones.iloc[0]["total"]) if not sesiones.empty else 0)
-c3.metric("Interacciones", int(interacciones.iloc[0]["total"]) if not interacciones.empty else 0)
-c4.metric("Memorias activas", int(memorias.iloc[0]["total"]) if not memorias.empty else 0)
-c5.metric("Registros de mejora", int(registros_mejora.iloc[0]["total"]) if not registros_mejora.empty else 0)
+c1.metric("Usuarios", int(usuarios.iloc[0]['total']) if not usuarios.empty else 0)
+c2.metric("Sesiones", int(sesiones.iloc[0]['total']) if not sesiones.empty else 0)
+c3.metric("Interacciones", int(interacciones.iloc[0]['total']) if not interacciones.empty else 0)
+c4.metric("Memorias activas", int(memorias.iloc[0]['total']) if not memorias.empty else 0)
+c5.metric("Registros de mejora", int(registros_mejora.iloc[0]['total']) if not registros_mejora.empty else 0)
 
 roles = read_sql_df("""
 SELECT COALESCE(rol_usuario, 'sin dato') AS rol_usuario, COUNT(*) AS total
