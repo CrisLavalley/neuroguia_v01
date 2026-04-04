@@ -1,0 +1,23 @@
+{
+  "protocolo_shutdown": {
+    "goal": "bajar presión y reabrir contacto sin forzar"
+  },
+  "protocolo_meltdown": {
+    "goal": "reducir intensidad y proteger seguridad"
+  },
+  "protocolo_sueno": {
+    "goal": "observar patrón y reducir detonantes"
+  },
+  "protocolo_escuela_inclusiva": {
+    "goal": "separar hecho, necesidad y ajuste"
+  },
+  "protocolo_cuidador_rebasado": {
+    "goal": "priorizar un paso pequeño y posible"
+  },
+  "protocolo_seguridad_clinica": {
+    "goal": "marcar límites clínicos y redirigir con seguridad"
+  },
+  "protocolo_acompanamiento": {
+    "goal": "dar una respuesta concreta, útil y contenida"
+  }
+}

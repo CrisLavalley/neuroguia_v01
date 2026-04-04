@@ -1,0 +1,62 @@
+[
+  {
+    "id_documento": "doc_001",
+    "title": "Límites del sistema (seguridad)",
+    "topic": "seguridad",
+    "keywords": [
+      "diagnóstico",
+      "diagnostico",
+      "medicación",
+      "medicacion",
+      "medicamento",
+      "receta",
+      "terapia",
+      "dosis"
+    ],
+    "content": "NeuroGuía no sustituye atención clínica ni prescribe medicación. Sí puede ayudar a organizar lo observado y preparar preguntas seguras."
+  },
+  {
+    "id_documento": "doc_002",
+    "title": "Shutdown y cierre",
+    "topic": "shutdown",
+    "keywords": [
+      "no me habla",
+      "no quiere hablar",
+      "encerró",
+      "encerro",
+      "callado",
+      "se aisló",
+      "se aislo",
+      "shutdown"
+    ],
+    "content": "Cuando una persona está en shutdown o muy saturada, lo más útil suele ser bajar presión, reducir estímulos y reabrir el contacto sin forzar conversación inmediata."
+  },
+  {
+    "id_documento": "doc_003",
+    "title": "Acompañamiento al cuidador",
+    "topic": "acompanamiento_cuidador",
+    "keywords": [
+      "estresada",
+      "estrés",
+      "estres",
+      "agotada",
+      "rebasada",
+      "qué hago",
+      "que hago"
+    ],
+    "content": "Cuando el cuidador se siente rebasado, conviene priorizar un paso pequeño, concreto y posible dentro de las próximas horas."
+  },
+  {
+    "id_documento": "doc_004",
+    "title": "Escuela inclusiva",
+    "topic": "escuela_inclusiva",
+    "keywords": [
+      "escuela",
+      "maestra",
+      "docente",
+      "clase",
+      "tarea"
+    ],
+    "content": "En contextos escolares conviene separar hecho, necesidad y ajuste razonable antes de escalar el conflicto."
+  }
+]
