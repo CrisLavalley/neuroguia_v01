@@ -7,6 +7,10 @@ import requests
 
 
 def wikipedia_summary(query: str, lang: str = "es", timeout: int = 6) -> dict[str, Any] | None:
+    """
+    Recupera un resumen breve desde la API pública de Wikipedia.
+    Se usa solo para dudas informativas no clínicas.
+    """
     if not query or len(query.strip()) < 3:
         return None
 
