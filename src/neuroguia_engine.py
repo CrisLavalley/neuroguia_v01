@@ -1,12 +1,17 @@
+
 from __future__ import annotations
+
 import json
 from collections import Counter
 from dataclasses import dataclass, field
 from pathlib import Path
 from typing import Any
 
+from src.web_helper import wikipedia_summary
+
 BASE = Path(__file__).resolve().parents[1]
 KB_DIR = BASE / "knowledge_base"
+
 
 def _safe_load_json(path: Path, default: Any) -> Any:
     try:
@@ -15,6 +20,7 @@ def _safe_load_json(path: Path, default: Any) -> Any:
     except Exception:
         pass
     return default
+
 
 @dataclass
 class SessionContext:
@@ -25,6 +31,9 @@ class SessionContext:
     user_goal: str = ""
     case_active: bool = False
     details_known: list[str] = field(default_factory=list)
+    emotional_tone: str = ""
+    last_user_need: str = ""
+
 
 @dataclass
 class AnalysisResult:
@@ -42,24 +51,62 @@ class AnalysisResult:
     context: SessionContext
     memory_updates: dict[str, Any]
 
+
 class NeuroGuiaEngine:
     def __init__(self) -> None:
         self.rag_docs = _safe_load_json(KB_DIR / "rag_documents.json", [])
         self.boundary_patterns = [
-            "diagnóstico","diagnostico","medicación","medicacion","medicamento","receta","dosis",
-            "terapia específica","terapia especifica","pastilla","fármaco","farmaco"
+            "diagnóstico", "diagnostico", "medicación", "medicacion", "medicamento",
+            "receta", "dosis", "terapia específica", "terapia especifica",
+            "pastilla", "fármaco", "farmaco", "tratamiento", "medicar",
+            "psiquiatra", "neurologo", "neurólogo"
         ]
+        self.high_risk_patterns = [
+            "suicid", "se quiere hacer daño", "se quiere lastimar", "arma",
+            "convuls", "no respira", "me quiero morir", "quitarme la vida"
+        ]
+        self.web_info_patterns = [
+            "qué es", "que es", "explícame", "explicame", "información sobre",
+            "informacion sobre", "háblame de", "hablame de", "quién es", "quien es"
+        ]
+
+    # --------------------------
+    # Entrada pública
+    # --------------------------
+    def build_welcome_message(
+        self,
+        display_name: str = "",
+        role: str = "",
+        user_memory: list[dict[str, Any]] | None = None,
+    ) -> str:
+        name_part = f", {display_name}" if display_name else ""
+        role_text = self._role_phrase(role)
+        memory = user_memory or []
+        temas = [m.get("valor", "") for m in memory if m.get("categoria") == "tema_frecuente"]
+        gentle_memory = ""
+        if temas:
+            frequent = Counter(temas).most_common(1)[0][0]
+            gentle_memory = f" Recuerdo que antes apareció el tema de **{self._topic_to_human(frequent)}**."
+
+        return (
+            f"Hola{name_part}. Estoy aquí para acompañarte{role_text} y ayudarte a poner en palabras lo que estás viviendo."
+            f"{gentle_memory}\n\n"
+            "Puedes escribirme tal como te salga: una duda, una situación concreta, algo que te dolió hoy, o incluso una pregunta general. "
+            "Yo voy a responderte de forma cercana, útil y sin empujarte a seguir un formato rígido."
+        )
 
     def analyze(
         self,
         message: str,
         context_dict: dict[str, Any] | None = None,
-        user_memory: list[dict[str, Any]] | None = None
+        user_memory: list[dict[str, Any]] | None = None,
+        user_profile: dict[str, Any] | None = None,
     ) -> AnalysisResult:
         ctx = SessionContext(**(context_dict or {}))
         text = (message or "").strip()
         lowered = text.lower()
         memory = user_memory or []
+        profile = user_profile or {}
 
         topic = self._detect_topic(lowered, ctx, memory)
         intent = self._detect_intent(lowered, ctx)
@@ -69,9 +116,41 @@ class NeuroGuiaEngine:
         confidence = self._estimate_confidence(lowered, topic, intent)
         clinical = "prohibida" if self._needs_clinical_boundary(lowered) else "permitida"
         rag_hits = self._retrieve_rag(lowered, topic)
-        response = self._build_response(lowered, topic, intent, crisis, clinical, memory, ctx)
+
+        web_hit = None
+        if self._should_use_web(lowered, clinical, crisis, intent):
+            web_hit = wikipedia_summary(self._clean_web_query(text))
+
+        response = self._build_response(
+            text=lowered,
+            original_text=text,
+            topic=topic,
+            intent=intent,
+            crisis=crisis,
+            clinical=clinical,
+            memory=memory,
+            user_profile=profile,
+            web_hit=web_hit,
+        )
+
         new_ctx = self._update_context(ctx, text, topic, intent)
-        memory_updates = self._propose_memory_updates(lowered, topic, intent)
+        memory_updates = self._propose_memory_updates(lowered, topic, profile)
+
+        source_name = "motor_v09_memoria_rag"
+        if web_hit:
+            source_name = "motor_v09_memoria_rag_web"
+
+        combined_hits = list(rag_hits)
+        if web_hit:
+            combined_hits.append(
+                {
+                    "title": web_hit["title"],
+                    "topic": "consulta_informativa",
+                    "content": web_hit["summary"],
+                    "source": web_hit["source"],
+                    "url": web_hit["url"],
+                }
+            )
 
         return AnalysisResult(
             emocion=emotion,
@@ -81,58 +160,71 @@ class NeuroGuiaEngine:
             filtro_clinico=clinical,
             protocolo=self._select_protocol(topic, clinical),
             respuesta=response,
-            fuente_respuesta="motor_v08_premium_memoria_rag",
+            fuente_respuesta=source_name,
             intent=intent,
             topic=topic,
-            recurso_rag=rag_hits,
+            recurso_rag=combined_hits[:3],
             context=new_ctx,
             memory_updates=memory_updates,
         )
 
+    # --------------------------
+    # Detección
+    # --------------------------
     def _detect_topic(self, text: str, ctx: SessionContext, memory: list[dict[str, Any]]) -> str:
-        if any(x in text for x in ["no me habla","no quiere hablar","encerró","encerro","callado","shutdown","se aisló","se aislo"]):
+        if any(x in text for x in ["no me habla", "no quiere hablar", "encerró", "encerro", "callado", "shutdown", "se aisló", "se aislo"]):
             return "shutdown"
-        if any(x in text for x in ["grita","golpea","explota","meltdown","se desbordó","se desbordo"]):
+        if any(x in text for x in ["grita", "golpea", "explota", "meltdown", "se desbordó", "se desbordo"]):
             return "meltdown"
-        if any(x in text for x in ["escuela","maestra","docente","clase","tarea"]):
+        if any(x in text for x in ["escuela", "maestra", "docente", "clase", "tarea", "salón", "salon"]):
             return "escuela_inclusiva"
-        if any(x in text for x in ["duerme","sueño","sueno","insomnio","noche"]):
+        if any(x in text for x in ["duerme", "sueño", "sueno", "insomnio", "noche"]):
             return "sueno"
-        if any(x in text for x in ["estres","estrés","agotada","rebasada","cansada","ya no puedo"]):
+        if any(x in text for x in ["estres", "estrés", "agotada", "agotado", "rebasada", "rebasado", "cansada", "cansado", "ya no puedo"]):
             return "acompanamiento_cuidador"
-        if any(x in text for x in ["acercarme","empatizar","amigos","vínculo","vinculo","conectar","relación","relacion","confianza","convivir"]):
+        if any(x in text for x in ["acercarme", "empatizar", "conectar", "cariñosos", "carinosos", "afecto", "vínculo", "vinculo", "relación", "relacion", "nietos", "hijos", "amistad", "confianza"]):
             return "vinculo_familiar"
-        temas = [m.get("valor","") for m in memory if m.get("categoria") == "tema_frecuente"]
+        if any(x in text for x in ["qué es", "que es", "explícame", "explicame", "información", "informacion", "háblame", "hablame"]):
+            return "consulta_informativa"
+
+        temas = [m.get("valor", "") for m in memory if m.get("categoria") == "tema_frecuente"]
         if temas:
             return Counter(temas).most_common(1)[0][0]
+
         return ctx.last_topic or "acompanamiento_general"
 
     def _detect_intent(self, text: str, ctx: SessionContext) -> str:
         if self._needs_clinical_boundary(text):
             return "consulta_clinica"
-        if any(x in text for x in ["cómo acercarme","como acercarme","empatizar","conectar con","ser más amigos","ser mas amigos","ganar confianza"]):
-            return "vinculo_practico"
-        if any(x in text for x in ["qué hago","que hago","qué le digo","que le digo","cómo hago","como hago","cómo le hago","como le hago","oriéntame","orientame"]):
+
+        if self._should_use_web(text, "permitida", "sin_crisis", "acompanamiento"):
+            return "consulta_informativa"
+
+        if any(x in text for x in ["cómo", "como", "qué hago", "que hago", "qué le digo", "que le digo", "qué puedo hacer", "que puedo hacer"]):
             return "orientacion_practica"
-        if any(x in text for x in ["por qué","por que","quiero entender","necesito entender"]):
+
+        if any(x in text for x in ["por qué", "por que", "quisiera entender", "quiero entender", "no entiendo"]):
             return "comprension"
-        if any(x in text for x in ["no pasó nada","no paso nada","en general","solo quiero","solo necesito orientación","solo necesito orientacion"]):
-            return "orientacion_general"
-        if text in ["sí","si","ok","vale","aja","ajá","bien"] or len(text.split()) <= 3:
+
+        if any(x in text for x in ["me duele", "me siento", "me pone triste", "me lastima", "me preocupa", "quisiera que se acercaran"]):
+            return "acompanamiento_emocional"
+
+        if text in ["sí", "si", "ok", "vale", "aja", "ajá", "bien"] or len(text.split()) <= 4:
             return "seguimiento" if ctx.case_active else "acompanamiento"
+
         return "acompanamiento"
 
     def _detect_emotion(self, text: str) -> str:
-        if any(x in text for x in ["agotada","agotado","rebasada","rebasado","estres","estrés","cansada","cansado","ya no puedo"]):
+        if any(x in text for x in ["agotada", "agotado", "rebasada", "rebasado", "estres", "estrés", "cansada", "cansado", "ya no puedo"]):
             return "agotamiento"
-        if any(x in text for x in ["preocupada","preocupado","miedo","ansiedad","ansiosa","ansioso","no sé como","no se como"]):
+        if any(x in text for x in ["preocupada", "preocupado", "miedo", "ansiedad", "ansiosa", "ansioso"]):
             return "ansiedad"
-        if any(x in text for x in ["culpa","fallando","mala madre","mal padre"]):
-            return "culpa"
+        if any(x in text for x in ["triste", "dolor", "me duele", "me lastima", "sola", "solo"]):
+            return "tristeza"
         return "acompanamiento"
 
     def _detect_crisis(self, text: str, topic: str) -> str:
-        if any(x in text for x in ["suicid","se quiere hacer daño","se quiere lastimar","arma","convuls","no respira"]):
+        if any(x in text for x in self.high_risk_patterns):
             return "riesgo_alto"
         if topic == "shutdown":
             return "shutdown"
@@ -141,14 +233,14 @@ class NeuroGuiaEngine:
         return "sin_crisis"
 
     def _estimate_intensity(self, text: str) -> float:
-        score = 0.32
-        for token in ["urgente","ya no puedo","muy mal","demasiado","encerró","encerro","callado","grita","meltdown","shutdown","no sé como","no se como"]:
+        score = 0.30
+        for token in ["urgente", "ya no puedo", "muy mal", "demasiado", "encerró", "encerro", "callado", "grita", "meltdown", "shutdown", "me duele", "me lastima"]:
             if token in text:
                 score += 0.08
         return min(0.95, round(score, 2))
 
     def _estimate_confidence(self, text: str, topic: str, intent: str) -> float:
-        score = 0.56 + (0.14 if topic != "acompanamiento_general" else 0) + (0.10 if intent not in ["acompanamiento", "seguimiento"] else 0)
+        score = 0.56 + (0.14 if topic != "acompanamiento_general" else 0) + (0.09 if intent != "acompanamiento" else 0)
         return min(0.95, round(score, 2))
 
     def _needs_clinical_boundary(self, text: str) -> bool:
@@ -157,14 +249,15 @@ class NeuroGuiaEngine:
     def _select_protocol(self, topic: str, clinical: str) -> str:
         if clinical == "prohibida":
             return "protocolo_seguridad_clinica"
-        return {
+        mapping = {
             "shutdown": "protocolo_shutdown",
             "meltdown": "protocolo_meltdown",
             "sueno": "protocolo_sueno",
             "escuela_inclusiva": "protocolo_escuela_inclusiva",
             "acompanamiento_cuidador": "protocolo_cuidador_rebasado",
-            "vinculo_familiar": "protocolo_acompanamiento",
-        }.get(topic, "protocolo_acompanamiento")
+            "vinculo_familiar": "protocolo_vinculo_familiar",
+        }
+        return mapping.get(topic, "protocolo_acompanamiento")
 
     def _retrieve_rag(self, text: str, topic: str) -> list[dict[str, Any]]:
         hits = []
@@ -178,204 +271,276 @@ class NeuroGuiaEngine:
         hits.sort(key=lambda x: x[0], reverse=True)
         return [doc for _, doc in hits[:3]]
 
+    def _should_use_web(self, text: str, clinical: str, crisis: str, intent: str) -> bool:
+        if clinical == "prohibida" or crisis == "riesgo_alto":
+            return False
+        if intent == "consulta_informativa":
+            return True
+        return any(p in text for p in self.web_info_patterns)
+
+    def _clean_web_query(self, text: str) -> str:
+        return text.replace("¿", "").replace("?", "").strip()
+
+    # --------------------------
+    # Respuesta
+    # --------------------------
     def _build_response(
         self,
         text: str,
+        original_text: str,
         topic: str,
         intent: str,
         crisis: str,
         clinical: str,
         memory: list[dict[str, Any]],
-        ctx: SessionContext
+        user_profile: dict[str, Any],
+        web_hit: dict[str, Any] | None = None,
     ) -> str:
+        display_name = (user_profile.get("display_name") or "").strip()
+        role = user_profile.get("role", "")
+        opening = self._empathetic_opening(text, role, display_name)
+
         if clinical == "prohibida":
             return (
+                f"{opening}\n\n"
                 "No puedo diagnosticar, indicar medicación ni sustituir a profesionales de salud. "
-                "Sí puedo ayudarte a organizar lo observado, identificar detonantes y preparar preguntas para una consulta segura."
+                "Sí puedo ayudarte a ordenar lo que has observado, identificar detonantes, preparar preguntas seguras "
+                "o pensar cómo explicarlo con calma en una consulta."
             )
 
         if crisis == "riesgo_alto":
             return (
-                "Lo que describes suena a una situación de alto riesgo. Lo más seguro es buscar apoyo presencial inmediato "
-                "con un adulto responsable o un servicio de emergencia. Quédate con la persona y reduce riesgos cercanos mientras consigues ayuda."
+                f"{opening}\n\n"
+                "Lo que describes suena a una situación de alto riesgo. En este momento lo más seguro es buscar apoyo presencial inmediato "
+                "con una persona adulta responsable o un servicio de emergencia. Quédate cerca, reduce riesgos del entorno y prioriza ayuda directa."
             )
 
-        if intent == "seguimiento":
-            return self._follow_up_response(topic)
-
-        temas = [m.get("valor","") for m in memory if m.get("categoria") == "tema_frecuente"]
-        support_note = ""
-        if temas:
-            support_note = f"\n\nVeo que antes apareció el tema de **{Counter(temas).most_common(1)[0][0]}**; eso puede ayudarnos a ver patrones sin empezar de cero."
-
-        if topic == "vinculo_familiar" or intent in ["vinculo_practico", "orientacion_general"]:
+        if web_hit:
             return (
-                "Gracias por decirlo tan claro. Lo que estás buscando no es una solución rápida, sino una forma más humana de acercarte a tus hijos, "
-                "y eso ya habla muy bien de ti.\n\n"
-                "Para empezar, no intentes conectar corrigiendo o interrogando. Intenta **acercarte desde lo compartido y lo seguro**:\n"
-                "1. elige un momento sin presión, no cuando haya conflicto,\n"
-                "2. acércate a algo que a ellos sí les interese,\n"
-                "3. haz comentarios breves en vez de muchas preguntas,\n"
-                "4. valida antes de aconsejar: *\"No quiero presionarte, solo quiero entenderte mejor\"*,\n"
-                "5. busca pequeños rituales: una caminata corta, ver algo juntos, un juego, una bebida, cinco minutos de charla.\n\n"
-                "Frases que sí ayudan:\n"
-                "- *\"No necesito que me cuentes todo hoy. Solo quiero estar más cerca de ti.\"*\n"
-                "- *\"Quiero aprender a acompañarte mejor, no controlarte más.\"*\n"
-                "- *\"Si te cuesta hablar, podemos empezar por algo pequeño.\"*\n\n"
-                "Lo importante no es volverse 'mejores amigos' de golpe, sino construir **confianza repetida en momentos pequeños**." +
-                support_note +
-                "\n\nSi quieres, te puedo dar ahora mismo un plan de 7 días para empezar a acercarte a ellos sin que se sienta forzado."
+                f"{opening}\n\n"
+                f"Te comparto una explicación breve sobre **{web_hit['title']}**:\n\n"
+                f"{web_hit['summary']}\n\n"
+                "Puedo ayudarte a aterrizar esta información a tu situación concreta, siempre cuidando mantenernos en una orientación no clínica."
             )
+
+        if topic == "vinculo_familiar":
+            return self._respond_vinculo_familiar(opening, text, role)
 
         if topic == "shutdown":
             return (
-                "Si tu hijo no quiere hablarte, lo más importante es no forzarlo en ese momento.\n\n"
-                "Te sugiero esto:\n"
-                "1. dale un poco de espacio primero; puede estar saturado,\n"
-                "2. acércate con una frase simple y sin presión: *\"No tienes que hablar ahorita. Solo quiero que sepas que estoy aquí\"*,\n"
-                "3. evita preguntas insistentes como *\"¿qué te pasa?\"*,\n"
-                "4. observa qué ocurrió antes: ruido, cansancio, escuela, conflicto o sobrecarga social,\n"
-                "5. retoma más tarde, cuando ya se vea más regulado.\n\n"
-                "Muchas veces no es rechazo: es saturación." +
-                support_note +
-                "\n\nSi quieres, dime la edad de tu hijo y te doy frases más adecuadas para acercarte."
+                f"{opening}\n\n"
+                "Si en ese momento la otra persona se cierra o deja de hablar, suele ayudar más bajar la presión que insistir. "
+                "Puedes probar con una presencia tranquila y una frase corta, por ejemplo: "
+                ""No necesitas hablar ahorita. Solo quiero que sepas que aquí estoy."\n\n"
+                "Si quieres, dime qué pasó justo antes y te ayudo a pensar cómo volver a acercarte sin forzar."
             )
 
         if topic == "meltdown":
             return (
-                "Si hubo un desborde fuerte, primero hay que bajar intensidad, no discutir.\n\n"
-                "Haz esto:\n"
-                "1. reduce estímulos,\n"
-                "2. habla poco y en tono bajo,\n"
-                "3. evita regaños o preguntas seguidas,\n"
-                "4. prioriza seguridad física y emocional,\n"
-                "5. deja la explicación para después.\n\n"
-                "Cuando el momento pase, te puedo ayudar a pensar qué detonó el desborde y cómo prevenir el siguiente."
+                f"{opening}\n\n"
+                "Cuando hay un desborde fuerte, conviene priorizar seguridad y poca estimulación. "
+                "Más que explicar o corregir en ese instante, ayuda hablar poco, bajar el tono y dejar la explicación para después.\n\n"
+                "Si quieres, puedo ayudarte a pensar qué hacer durante el momento y qué hacer ya cuando todo se calme."
             )
 
         if topic == "acompanamiento_cuidador":
             return (
-                "Se siente pesado, y no tienes que cargarlo todo perfecto para estar haciéndolo bien.\n\n"
-                "Por ahora prueba esto:\n"
-                "1. elige una sola prioridad para las próximas dos horas,\n"
-                "2. suelta lo que pueda esperar,\n"
-                "3. usa una frase breve contigo: *\"Hoy no necesito hacerlo perfecto, solo hacerlo posible\"*,\n"
-                "4. si tienes red de apoyo, pide una ayuda concreta, no general.\n\n"
-                "Si quieres, dime qué te está rebasando más hoy y lo ordenamos juntas(os)."
+                f"{opening}\n\n"
+                "Hoy no necesitas resolver todo de una sola vez. A veces ayuda mucho elegir una sola prioridad para las próximas horas "
+                "y soltar, aunque sea por un rato, lo demás.\n\n"
+                "Si quieres, escríbeme qué es lo más pesado de hoy y lo ordenamos juntas o juntos paso por paso."
             )
 
         if topic == "escuela_inclusiva":
             return (
-                "Si esto tiene que ver con la escuela, conviene separar tres cosas: **qué ocurrió, qué necesita el alumno y qué ajuste sí se puede pedir**.\n\n"
-                "Puedes empezar con algo como: *\"Quiero entender qué pasó y pensar un ajuste concreto para que esto no escale.\"*\n\n"
-                "Si me dices qué pasó en clase, te ayudo a redactar el mensaje o la conversación."
+                f"{opening}\n\n"
+                "Si esto tiene que ver con la escuela, suele servir separar tres cosas: qué pasó, qué necesidad apareció y qué ajuste concreto podría pedirse.\n\n"
+                "Si me cuentas la situación con un poquito más de detalle, te ayudo a redactar un siguiente paso claro y respetuoso."
             )
 
         if topic == "sueno":
             return (
-                "Si el problema es el sueño, antes de sacar conclusiones conviene observar el patrón.\n\n"
-                "Revisa: hora de dormir, qué ocurrió una hora antes y si hubo ruido, pantalla, ansiedad o sobrecarga.\n\n"
-                "Si quieres, te ayudo a convertir eso en un registro breve y útil."
+                f"{opening}\n\n"
+                "Con el sueño suele ayudar más observar patrón que sacar conclusiones rápidas. "
+                "A veces influye lo que ocurrió una hora antes, el cansancio acumulado, la ansiedad o la sobrecarga del día.\n\n"
+                "Si quieres, te ayudo a convertirlo en un registro simple para entenderlo mejor."
+            )
+
+        if intent == "acompanamiento_emocional":
+            return (
+                f"{opening}\n\n"
+                "Lo que sientes tiene sentido. No siempre es fácil llevar por dentro una mezcla de amor, preocupación, cansancio o tristeza "
+                "cuando una relación importante no se siente como uno quisiera.\n\n"
+                "No necesitas explicarlo de forma perfecta. Si quieres, puedo ayudarte a poner orden en lo que más te está pesando ahorita."
             )
 
         if intent == "orientacion_practica":
             return (
-                "Voy contigo a lo concreto.\n\n"
-                "Cuéntame estas tres cosas y te respondo con un paso siguiente bien aterrizado:\n"
-                "1. qué pasó justo antes,\n"
-                "2. qué hizo después,\n"
-                "3. qué te preocupa más a ti en este momento."
+                f"{opening}\n\n"
+                "Voy contigo a algo concreto. Cuéntame qué fue lo que pasó, qué te gustaría que ocurriera distinto y qué es lo que más te preocupa, "
+                "y te respondo con pasos realistas."
             )
 
         if intent == "comprension":
             return (
-                "Entiendo que quieres comprenderlo, no solo apagar la situación. A veces la conducta no significa rechazo; puede ser cansancio, saturación, frustración o dificultad para procesar lo vivido.\n\n"
-                "Si me cuentas qué pasó antes y cómo estaba después, te ayudo a interpretarlo con más claridad."
+                f"{opening}\n\n"
+                "A veces lo que vemos como distancia, rechazo o desinterés también puede estar relacionado con hábitos, saturación, etapa de vida, "
+                "dificultad para expresar afecto o costumbre de vincularse desde otro lugar.\n\n"
+                "Si quieres, podemos mirar tu caso sin juzgarlo y entender qué podría estar pasando."
+            )
+
+        temas = [m.get("valor", "") for m in memory if m.get("categoria") == "tema_frecuente"]
+        memory_note = ""
+        if temas:
+            tema = self._topic_to_human(Counter(temas).most_common(1)[0][0])
+            memory_note = f" También noto que antes apareció el tema de **{tema}**, así que podemos darle continuidad si te sirve."
+
+        return (
+            f"{opening}\n\n"
+            "Gracias por contármelo. Estoy aquí para ayudarte a aterrizar lo que estás viviendo sin meterte en un molde rígido."
+            f"{memory_note}\n\n"
+            "Si quieres, puedes contarme la situación tal cual ocurrió, o simplemente decirme qué te gustaría que cambiara."
+        )
+
+    def _respond_vinculo_familiar(self, opening: str, text: str, role: str) -> str:
+        role_phrase = {
+            "abuelo(a)": "con los nietos",
+            "madre": "con tus hijos",
+            "padre": "con tus hijos",
+            "cuidador(a)": "con la persona que acompañas",
+        }.get(role, "con esa persona")
+
+        if any(x in text for x in ["que ellos se acercaran", "que se acercaran a mí", "que me buscaran", "cariñosos", "carinosos"]):
+            return (
+                f"{opening}\n\n"
+                f"Es muy humano desear más cercanía {role_phrase}. A veces uno no está buscando algo enorme, sino pequeños gestos que hagan sentir vínculo.\n\n"
+                "Lo primero es no tomar toda la distancia como falta de cariño. En muchas personas, especialmente cuando están absorbidas por sus rutinas, su edad o su forma de ser, "
+                "el afecto no siempre sale de forma espontánea.\n\n"
+                "Suele ayudar más abrir espacios pequeños y naturales que pedir cercanía directamente. Por ejemplo:\n"
+                "1. empezar con conversaciones cortas y amables sobre algo que les interese,\n"
+                "2. compartir un momento sencillo sin exigir que hablen mucho,\n"
+                "3. hacer una invitación concreta y ligera, como tomar algo juntos, ver algo breve o acompañarte en una tarea pequeña,\n"
+                "4. mostrar interés antes que reproche, para que no sientan presión.\n\n"
+                "Si quieres, te ayudo a pensar una forma muy natural de acercarte a ellos según la edad que tienen."
+            )
+
+        if any(x in text for x in ["por qué no son cariñosos", "porque no son carinosos", "no hablan", "solo están en el teléfono", "solo estan en el telefono"]):
+            return (
+                f"{opening}\n\n"
+                "Eso puede doler mucho, sobre todo cuando una quisiera sentir más calor en el vínculo. "
+                "No siempre significa rechazo. A veces hay costumbre, timidez emocional, distracción, etapa de vida o una forma distinta de convivir.\n\n"
+                "Antes de pensar que no quieren estar contigo, puede ayudar preguntarte: "
+                "¿en qué momentos sí se relajan un poco?, ¿qué temas sí les interesan?, ¿cuándo están menos absorbidos por el teléfono o por su rutina?\n\n"
+                "Si quieres, puedo ayudarte a encontrar maneras de acercarte sin que se sienta forzado ni doloroso."
             )
 
         return (
-            "Gracias por contarlo. Para orientarte mejor necesito ubicar un poco el contexto, pero no quiero hacerte sentir en un ciclo.\n\n"
-            "Puedes elegir una de estas rutas y te respondo directo:\n"
-            "- **vínculo**: cómo acercarme sin presionar\n"
-            "- **escuela**: qué hacer con una situación escolar\n"
-            "- **desborde**: qué hacer durante un momento difícil\n"
-            "- **cansancio**: cómo ordenar lo que me está rebasando"
+            f"{opening}\n\n"
+            "Cuando lo que duele es la distancia emocional, suele funcionar mejor construir vínculo desde momentos pequeños que desde grandes conversaciones forzadas.\n\n"
+            "Podemos pensar juntas o juntos en frases, gestos o actividades muy sencillas para abrir cercanía de una forma natural. "
+            "Si quieres, dime la edad aproximada de ellos y cómo suele ser la convivencia cuando están contigo."
         )
 
-    def _follow_up_response(self, topic: str) -> str:
-        if topic == "shutdown":
-            return (
-                "Bien. Entonces avancemos sin forzarlo.\n\n"
-                "Prueba esto hoy:\n"
-                "1. no le exijas hablar de inmediato,\n"
-                "2. déjale una puerta abierta con una frase corta: *\"Cuando quieras, aquí estoy\"*,\n"
-                "3. si más tarde se regula un poco, haz una sola pregunta breve.\n\n"
-                "Si quieres, te doy exactamente qué frase usar."
-            )
-        if topic == "vinculo_familiar":
-            return (
-                "Perfecto. Entonces vamos por cercanía sin presión.\n\n"
-                "Hoy intenta solo una de estas acciones:\n"
-                "1. compartir 10 minutos de algo que a tu hijo sí le guste,\n"
-                "2. hacer una pregunta ligera sin buscar una gran conversación,\n"
-                "3. validar algo que le cueste sin corregirlo enseguida.\n\n"
-                "Si me dices la edad de tus hijos, te doy ejemplos más precisos."
-            )
-        if topic == "acompanamiento_cuidador":
-            return (
-                "Bien, vamos a lo concreto.\n\n"
-                "Escríbeme solo una de estas tres opciones y trabajamos sobre ella:\n"
-                "1. qué me preocupa más\n"
-                "2. qué sí depende de mí hoy\n"
-                "3. qué puede esperar"
-            )
-        return "Perfecto. Vamos a aterrizarlo. Cuéntame cuál es la parte más urgente y te respondo con una acción concreta."
+    def _empathetic_opening(self, text: str, role: str, display_name: str) -> str:
+        name = f", {display_name}" if display_name else ""
+        if any(x in text for x in ["me duele", "triste", "lastima", "sola", "solo"]):
+            return f"Te leo{name}. Y sí, eso puede doler bastante."
+        if any(x in text for x in ["no sé", "no se", "confund", "perdida", "perdido"]):
+            return f"Entiendo{name}. A veces una situación así deja muchas preguntas juntas."
+        if role == "abuelo(a)":
+            return f"Te acompaño{name}. Lo que pasa con los nietos puede tocar fibras muy profundas."
+        return f"Gracias por abrir esto{name}. Lo tomo con cuidado."
 
+    def _role_phrase(self, role: str) -> str:
+        mapping = {
+            "madre": " como madre",
+            "padre": " como padre",
+            "abuelo(a)": " desde tu lugar de abuelo o abuela",
+            "cuidador(a)": " desde tu papel de cuidado",
+            "docente": " desde tu lugar docente",
+            "adolescente": "",
+            "adulto neurodivergente": "",
+        }
+        return mapping.get(role, "")
+
+    def _topic_to_human(self, topic: str) -> str:
+        mapping = {
+            "vinculo_familiar": "vínculo familiar",
+            "shutdown": "momentos de cierre o saturación",
+            "meltdown": "momentos de desborde",
+            "escuela_inclusiva": "escuela",
+            "acompanamiento_cuidador": "cansancio del cuidador",
+            "sueno": "sueño",
+        }
+        return mapping.get(topic, topic.replace("_", " "))
+
+    # --------------------------
+    # Contexto y memoria
+    # --------------------------
     def _update_context(self, ctx: SessionContext, text: str, topic: str, intent: str) -> SessionContext:
         details = list(ctx.details_known)
         if text and text not in details:
-            details.append(text[:180])
+            details.append(text[:140])
+
         summary = f"tema={topic}; intent={intent}; detalles={len(details)}"
+        emotional_tone = self._detect_emotion(text.lower())
+        user_need = "vinculo" if topic == "vinculo_familiar" else intent
+
         return SessionContext(
             summary=summary,
             last_topic=topic,
             last_intent=intent,
             turns=ctx.turns + 1,
-            user_goal=ctx.user_goal or ("orientación práctica" if intent in ["orientacion_practica", "vinculo_practico"] else ""),
+            user_goal=ctx.user_goal or ("orientación práctica" if intent == "orientacion_practica" else ""),
             case_active=True,
             details_known=details[-6:],
+            emotional_tone=emotional_tone,
+            last_user_need=user_need,
         )
 
-    def _propose_memory_updates(self, text: str, topic: str, intent: str) -> dict[str, Any]:
+    def _propose_memory_updates(self, text: str, topic: str, user_profile: dict[str, Any]) -> dict[str, Any]:
         updates = {"items": []}
+
         if topic != "acompanamiento_general":
-            updates["items"].append({
-                "categoria": "tema_frecuente",
-                "clave": "tema_frecuente",
-                "valor": topic,
-                "fuente": "conversacion",
-                "nivel_confianza": 0.8,
-            })
-        if intent in ["vinculo_practico", "orientacion_general"]:
-            updates["items"].append({
-                "categoria": "objetivo_usuario",
-                "clave": "objetivo_usuario",
-                "valor": "mejorar_vinculo_familiar",
-                "fuente": "conversacion",
-                "nivel_confianza": 0.8,
-            })
-        for detonante in ["ruido","fiesta","escuela","cansancio","pantalla","tarea"]:
-            if detonante in text:
-                updates["items"].append({
-                    "categoria": "detonante",
-                    "clave": "detonante_reportado",
-                    "valor": detonante,
+            updates["items"].append(
+                {
+                    "categoria": "tema_frecuente",
+                    "clave": "tema_frecuente",
+                    "valor": topic,
                     "fuente": "conversacion",
-                    "nivel_confianza": 0.7,
-                })
+                    "nivel_confianza": 0.8,
+                }
+            )
+
+        for detonante in ["ruido", "fiesta", "escuela", "cansancio", "pantalla", "tarea", "teléfono", "telefono"]:
+            if detonante in text:
+                updates["items"].append(
+                    {
+                        "categoria": "detonante",
+                        "clave": "detonante_reportado",
+                        "valor": detonante,
+                        "fuente": "conversacion",
+                        "nivel_confianza": 0.7,
+                    }
+                )
+
+        display_name = (user_profile.get("display_name") or "").strip()
+        if display_name:
+            updates["items"].append(
+                {
+                    "categoria": "preferencia_interaccion",
+                    "clave": "nombre_preferido",
+                    "valor": display_name,
+                    "fuente": "perfil",
+                    "nivel_confianza": 0.95,
+                }
+            )
+
         return updates
 
+
 _ENGINE = None
+
 
 def get_ng_engine() -> NeuroGuiaEngine:
     global _ENGINE

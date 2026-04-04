@@ -14,10 +14,13 @@
   "protocolo_cuidador_rebasado": {
     "goal": "priorizar un paso pequeño y posible"
   },
+  "protocolo_vinculo_familiar": {
+    "goal": "fortalecer la cercanía sin presión ni guiones rígidos"
+  },
   "protocolo_seguridad_clinica": {
     "goal": "marcar límites clínicos y redirigir con seguridad"
   },
   "protocolo_acompanamiento": {
-    "goal": "dar una respuesta concreta, útil y contenida"
+    "goal": "dar una respuesta concreta, cálida y contenida"
   }
 }

@@ -1,3 +1,4 @@
+
 CREATE TABLE IF NOT EXISTS usuarios (
     id_usuario TEXT PRIMARY KEY,
     email_usuario TEXT,
