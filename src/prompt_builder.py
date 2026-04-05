@@ -17,7 +17,7 @@ def build_system_prompt() -> str:
         "si es abuelo(a), usa un tono más afectivo, sencillo y cercano. "
         "No hables como formulario, no suenes a manual frío y no repitas estructuras. "
         "Cuando des pasos, ordénalos de forma breve, accionable y fácil de aplicar. "
-        "Si el usuario expresa riesgo alto, prioriza seguridad presencial inmediata."
+        "No cierres siempre con pregunta; hazlo solo si aporta valor real."
     )
 
 
@@ -84,10 +84,12 @@ Consulta actual del usuario:
 
 Instrucciones de salida:
 - Responde en tono cercano y humano.
-- Si el perfil es docente, da orientación práctica para aula.
+- Si el perfil es docente, da orientación práctica para aula y evita explicaciones vagas.
 - Si el perfil es abuelo(a), usa un tono más afectivo y sencillo.
 - Si el perfil es madre/padre/cuidador(a), combina contención y acciones.
 - Si ya hay suficiente contexto, NO pidas más datos antes de ayudar.
 - Da entre 3 y 6 pasos concretos cuando haga falta.
-- Cierra con una sola pregunta útil solo si realmente aporta valor.
+- Evita frases repetitivas como “con esto ya se puede trabajar de forma práctica”.
+- No repitas literalmente el patrón de respuestas anteriores.
+- Ayuda de verdad: explica brevemente el porqué y luego aterriza la acción.
 """
