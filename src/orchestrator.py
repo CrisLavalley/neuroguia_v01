@@ -7,7 +7,7 @@ from pathlib import Path
 from typing import Any
 
 from src.llm_client import LLMClient
-from src.prompt_builder import build_system_prompt, build_user_prompt
+from src.prompt_builder import build_system_prompt, build_user_prompt, build_session_summary
 
 BASE = Path(__file__).resolve().parents[1]
 KB_DIR = BASE / "knowledge_base"
@@ -69,40 +69,27 @@ class NeuroGuiaEngine:
             "suicid", "se quiere hacer daño", "se quiere lastimar", "arma",
             "convuls", "no respira", "me quiero morir", "quitarme la vida"
         ]
+        self.minimal_messages = {"si", "sí", "ok", "vale", "gracias", "ajá", "aja", "entiendo", "y entonces?", "y entonces", "mmm"}
 
-    def build_welcome_message(
-        self,
-        display_name: str = "",
-        role: str = "",
-        user_memory: list[dict[str, Any]] | None = None,
-    ) -> str:
+    def build_welcome_message(self, display_name: str = "", role: str = "", user_memory: list[dict[str, Any]] | None = None) -> str:
         memory = user_memory or []
         temas = [m.get("valor", "") for m in memory if m.get("categoria") == "tema_frecuente"]
         memory_note = ""
         if temas:
             tema = self._topic_to_human(Counter(temas).most_common(1)[0][0])
             memory_note = f" También recuerdo que antes apareció el tema de **{tema}**."
-
         saludo = f"Hola, {display_name}." if display_name else "Hola."
         role_phrase = self._role_phrase(role)
-
         return (
-            f"{saludo} Estoy aquí para acompañarte{role_phrase} con un tono claro, cercano y útil.{memory_note}\n\n"
-            "Puedes escribirme una situación concreta, una duda, algo que te dolió hoy o una pregunta general. "
-            "Mi intención es ayudarte con calidez y, cuando ya haya suficiente contexto, con orientación realmente concreta."
+            f"{saludo} Estoy aquí para acompañarte{role_phrase} con claridad y calidez.{memory_note}\n\n"
+            "Puedes escribirme una situación concreta, una duda o algo que te esté pesando hoy. Voy a intentar responderte de forma útil, breve y aterrizada."
         )
 
-    def analyze(
-        self,
-        message: str,
-        context_dict: dict[str, Any] | None = None,
-        user_memory: list[dict[str, Any]] | None = None,
-        user_profile: dict[str, Any] | None = None,
-        previous_messages: list[tuple[str, str]] | None = None,
-    ) -> AnalysisResult:
+    def analyze(self, message: str, context_dict: dict[str, Any] | None = None, user_memory: list[dict[str, Any]] | None = None,
+                user_profile: dict[str, Any] | None = None, previous_messages: list[tuple[str, str]] | None = None) -> AnalysisResult:
         ctx = SessionContext(**(context_dict or {}))
         text = (message or "").strip()
-        lowered = text.lower()
+        lowered = text.lower().strip()
         memory = user_memory or []
         profile = user_profile or {}
         previous_messages = previous_messages or []
@@ -128,7 +115,7 @@ class NeuroGuiaEngine:
             "depth": depth,
         }
 
-        response, source = self._generate_hybrid_response(
+        response, source = self._generate_cost_optimized_response(
             text=text,
             lowered=lowered,
             profile=profile,
@@ -138,7 +125,7 @@ class NeuroGuiaEngine:
             previous_messages=previous_messages,
         )
 
-        new_ctx = self._update_context(ctx, text, topic, intent, enough_context)
+        new_ctx = self._update_context(ctx, text, topic, intent, enough_context, profile, analysis, memory)
         memory_updates = self._propose_memory_updates(lowered, topic, profile)
 
         return AnalysisResult(
@@ -152,35 +139,39 @@ class NeuroGuiaEngine:
             fuente_respuesta=source,
             intent=intent,
             topic=topic,
-            recurso_rag=rag_hits[:3],
+            recurso_rag=rag_hits[:1],
             context=new_ctx,
             memory_updates=memory_updates,
         )
 
-    def _generate_hybrid_response(
-        self,
-        *,
-        text: str,
-        lowered: str,
-        profile: dict[str, Any],
-        memory: list[dict[str, Any]],
-        rag_hits: list[dict[str, Any]],
-        analysis: dict[str, Any],
-        previous_messages: list[tuple[str, str]],
-    ) -> tuple[str, str]:
+    def _should_call_llm(self, lowered: str, analysis: dict[str, Any], ctx: SessionContext) -> bool:
+        if lowered in self.minimal_messages:
+            return False
+        if len(lowered.split()) <= 2:
+            return False
+        if analysis["clinical_boundary"] == "prohibida" or analysis["crisis"] == "riesgo_alto":
+            return False
+        if not analysis["enough_context"] and analysis["intent"] not in {"comprension", "acompanamiento_emocional"}:
+            return False
+        return True
+
+    def _generate_cost_optimized_response(self, *, text: str, lowered: str, profile: dict[str, Any], memory: list[dict[str, Any]],
+                                          rag_hits: list[dict[str, Any]], analysis: dict[str, Any],
+                                          previous_messages: list[tuple[str, str]]) -> tuple[str, str]:
         if analysis["clinical_boundary"] == "prohibida":
             return (
-                "Te leo con cuidado. No puedo diagnosticar, indicar medicación ni sustituir a profesionales de salud. "
-                "Sí puedo ayudarte a ordenar lo que observas, identificar detonantes, preparar preguntas seguras y pensar cómo acompañar de forma prudente.",
+                "Te leo con cuidado. No puedo diagnosticar, indicar medicación ni sustituir a profesionales de salud. Sí puedo ayudarte a ordenar lo que observas y a preparar una explicación clara para consulta.",
                 "limite_no_clinico",
             )
 
         if analysis["crisis"] == "riesgo_alto":
             return (
-                "Lo que describes suena a una situación de alto riesgo. En este momento lo más seguro es buscar apoyo presencial inmediato "
-                "con una persona adulta responsable o un servicio de emergencia. Quédate cerca, reduce riesgos del entorno y prioriza ayuda directa.",
+                "Lo que describes suena a una situación de alto riesgo. Ahora lo más seguro es buscar apoyo presencial inmediato con una persona adulta responsable o un servicio de emergencia.",
                 "alerta_riesgo",
             )
+
+        if not self._should_call_llm(lowered, analysis, SessionContext()):
+            return self._local_short_response(lowered, profile.get("role", ""), analysis), "local_short"
 
         if self.llm.enabled:
             system_prompt = build_system_prompt()
@@ -194,64 +185,32 @@ class NeuroGuiaEngine:
             )
             llm_text = self.llm.generate(system_prompt, user_prompt)
             if llm_text:
-                return llm_text.strip(), f"llm:{self.llm.settings.model}"
+                meta = self.llm.last_meta or {}
+                return llm_text.strip(), f"llm:{self.llm.settings.model} | costo≈${meta.get('estimated_cost_usd', 0.0):.6f}"
 
-        fallback = self._deterministic_fallback(
-            lowered=lowered,
-            topic=analysis["topic"],
-            intent=analysis["intent"],
-            role=profile.get("role", ""),
-            enough_context=analysis["enough_context"],
-            depth=analysis["depth"],
-        )
+        fallback = self._deterministic_fallback(lowered=lowered, topic=analysis["topic"], intent=analysis["intent"], role=profile.get("role", ""), enough_context=analysis["enough_context"])
         reason = self.llm.last_error or "sin detalle"
-        return fallback, f"fallback_local ({reason})"
+        meta = self.llm.last_meta or {}
+        return fallback, f"fallback_local ({reason}) | costo_est≈${meta.get('estimated_cost_usd', 0.0):.6f}"
 
-    def _deterministic_fallback(
-        self,
-        *,
-        lowered: str,
-        topic: str,
-        intent: str,
-        role: str,
-        enough_context: bool,
-        depth: str,
-    ) -> str:
+    def _local_short_response(self, lowered: str, role: str, analysis: dict[str, Any]) -> str:
+        if lowered in {"gracias", "ok", "vale", "sí", "si"}:
+            return "Claro. Voy contigo. Si quieres, ahora lo traduzco a algo más concreto."
+        if lowered in {"y entonces?", "y entonces"}:
+            return "Lo aterrizo: dime qué te urge más, entender lo que pasa o saber qué hacer primero."
+        if role == "docente":
+            return "Voy contigo. Cuéntame en una sola frase qué pasó en el aula y qué quieres lograr, y te doy pasos concretos."
+        return "Te sigo. Dime qué te gustaría resolver primero y lo bajamos a algo breve y útil."
+
+    def _deterministic_fallback(self, *, lowered: str, topic: str, intent: str, role: str, enough_context: bool) -> str:
         opening = self._empathetic_opening(lowered, role)
-
-        if enough_context and topic == "sueno":
-            steps = [
-                "observa a qué hora empieza realmente la dificultad",
-                "revisa qué pasó en la hora previa: pantallas, ruido, ansiedad, conflicto o sobrecarga",
-                "mantén una rutina breve y repetible antes de dormir",
-                "anota durante varios días si notas un patrón repetido",
-            ]
-            return (
-                f"{opening}\n\n"
-                "Puedo darte una orientación inicial mientras dejamos estable la conexión con el modelo.\n\n"
-                + self._format_steps(steps, depth)
-                + "\n\nSi quieres, después lo convertimos en un registro simple y más útil para casa."
-            )
-
         if enough_context and topic == "escuela_inclusiva":
-            steps = [
-                "en el momento del desborde, baja estímulos y protege al grupo antes de corregir",
-                "usa una instrucción corta y repetible, no un sermón",
-                "reduce público y exposición si el alumno ya está muy activado",
-                "observa qué pasó justo antes para detectar detonantes",
-            ]
-            return (
-                f"{opening}\n\n"
-                "Puedo darte una orientación inicial mientras dejamos estable la conexión con el modelo.\n\n"
-                + self._format_steps(steps, depth)
-                + "\n\nEn cuanto el modelo quede entrando bien, esta parte debe volverse mucho más específica y natural."
-            )
-
-        return (
-            f"{opening}\n\n"
-            "Estoy teniendo que responder con una capa local más simple de lo ideal. "
-            "Puedo darte una orientación básica, pero la idea es que esto mejore en cuanto la conexión con el modelo quede estable."
-        )
+            return f"{opening}\n\nMientras recuperamos la capa avanzada, te dejo un paso breve: baja estímulos, usa una instrucción corta, evita corregir en público y observa qué detonó el momento."
+        if enough_context and topic == "vinculo_familiar":
+            return f"{opening}\n\nComo orientación breve: empieza con momentos pequeños, evita el reproche directo y acércate desde algo que a ellos les interese."
+        if enough_context and topic == "sueno":
+            return f"{opening}\n\nComo primer paso, observa qué ocurre en la hora previa a dormir: pantallas, ruido, ansiedad o sobrecarga."
+        return f"{opening}\n\nEstoy respondiendo en modo local austero. Puedo acompañarte brevemente, pero la versión más elaborada depende de la capa LLM."
 
     def _detect_topic(self, text: str, ctx: SessionContext, memory: list[dict[str, Any]]) -> str:
         if any(x in text for x in ["escuela", "maestra", "docente", "clase", "tarea", "alumno", "compañeros", "companeros"]):
@@ -260,7 +219,6 @@ class NeuroGuiaEngine:
             return "sueno"
         if any(x in text for x in ["acercarme", "empatizar", "conectar", "nietos", "hijos", "cariñosos", "carinosos", "vínculo", "vinculo"]):
             return "vinculo_familiar"
-
         temas = [m.get("valor", "") for m in memory if m.get("categoria") == "tema_frecuente"]
         if temas:
             return Counter(temas).most_common(1)[0][0]
@@ -275,7 +233,7 @@ class NeuroGuiaEngine:
             return "comprension"
         if any(x in text for x in ["me duele", "me siento", "me preocupa"]):
             return "acompanamiento_emocional"
-        if text in ["sí", "si", "ok", "vale", "aja", "ajá", "bien"] or len(text.split()) <= 4:
+        if text in self.minimal_messages or len(text.split()) <= 4:
             return "seguimiento" if ctx.case_active else "acompanamiento"
         return "acompanamiento"
 
@@ -292,15 +250,15 @@ class NeuroGuiaEngine:
         return "sin_crisis"
 
     def _estimate_intensity(self, text: str) -> float:
-        score = 0.30
+        score = 0.28
         for token in ["urgente", "muy mal", "demasiado", "me duele", "me lastima", "berrinche"]:
             if token in text:
                 score += 0.08
-        return min(0.95, round(score, 2))
+        return min(0.92, round(score, 2))
 
     def _estimate_confidence(self, topic: str, intent: str) -> float:
-        score = 0.56 + (0.14 if topic != "acompanamiento_general" else 0) + (0.09 if intent != "acompanamiento" else 0)
-        return min(0.95, round(score, 2))
+        score = 0.55 + (0.14 if topic != "acompanamiento_general" else 0) + (0.07 if intent != "acompanamiento" else 0)
+        return min(0.9, round(score, 2))
 
     def _needs_clinical_boundary(self, text: str) -> bool:
         return any(k in text for k in self.boundary_patterns)
@@ -308,11 +266,7 @@ class NeuroGuiaEngine:
     def _select_protocol(self, topic: str, clinical: str) -> str:
         if clinical == "prohibida":
             return "protocolo_seguridad_clinica"
-        mapping = {
-            "sueno": "protocolo_sueno",
-            "escuela_inclusiva": "protocolo_escuela_inclusiva",
-            "vinculo_familiar": "protocolo_vinculo_familiar",
-        }
+        mapping = {"sueno": "protocolo_sueno", "escuela_inclusiva": "protocolo_escuela_inclusiva", "vinculo_familiar": "protocolo_vinculo_familiar"}
         return mapping.get(topic, "protocolo_acompanamiento")
 
     def _retrieve_rag(self, text: str, topic: str) -> list[dict[str, Any]]:
@@ -325,10 +279,10 @@ class NeuroGuiaEngine:
             if score > 0:
                 hits.append((score, doc))
         hits.sort(key=lambda x: x[0], reverse=True)
-        return [doc for _, doc in hits[:3]]
+        return [doc for _, doc in hits[:1]]
 
     def _has_enough_context(self, text: str, ctx: SessionContext, topic: str, intent: str) -> bool:
-        if len(text.split()) >= 8:
+        if len(text.split()) >= 7:
             return True
         if ctx.turns >= 1 and topic == ctx.last_topic:
             return True
@@ -336,31 +290,12 @@ class NeuroGuiaEngine:
             return True
         return False
 
-    def _depth_by_role(self, role: str, text: str, ctx: SessionContext) -> str:
-        if role in ["madre", "padre", "docente", "cuidador(a)"]:
-            return "alto" if ctx.turns >= 1 else "medio"
-        return "medio"
-
-    def _format_steps(self, steps: list[str], depth: str) -> str:
-        selected = steps[:4] if depth != "alto" else steps
-        return "\n".join(f"{i+1}. {step}" for i, step in enumerate(selected))
-
     def _role_phrase(self, role: str) -> str:
-        mapping = {
-            "madre": " como madre",
-            "padre": " como padre",
-            "abuelo(a)": " desde tu lugar de abuelo o abuela",
-            "cuidador(a)": " desde tu papel de cuidado",
-            "docente": " desde tu lugar docente",
-        }
+        mapping = {"madre": " como madre", "padre": " como padre", "abuelo(a)": " desde tu lugar de abuelo o abuela", "cuidador(a)": " desde tu papel de cuidado", "docente": " desde tu lugar docente"}
         return mapping.get(role, "")
 
     def _topic_to_human(self, topic: str) -> str:
-        mapping = {
-            "vinculo_familiar": "vínculo familiar",
-            "escuela_inclusiva": "escuela",
-            "sueno": "sueño",
-        }
+        mapping = {"vinculo_familiar": "vínculo familiar", "escuela_inclusiva": "escuela", "sueno": "sueño"}
         return mapping.get(topic, topic.replace("_", " "))
 
     def _empathetic_opening(self, text: str, role: str) -> str:
@@ -370,17 +305,21 @@ class NeuroGuiaEngine:
             return "Te leo con cuidado. Eso puede pesar bastante."
         return "Gracias por abrir esto. Lo tomo con cuidado."
 
-    def _update_context(self, ctx: SessionContext, text: str, topic: str, intent: str, enough_context: bool) -> SessionContext:
+    def _update_context(self, ctx: SessionContext, text: str, topic: str, intent: str, enough_context: bool,
+                        profile: dict[str, Any], analysis: dict[str, Any], memory: list[dict[str, Any]]) -> SessionContext:
         details = list(ctx.details_known)
         if text and text not in details:
-            details.append(text[:140])
+            details.append(text[:120])
+
+        summary = build_session_summary(user_profile=profile, analysis=analysis, memory_items=memory)
+
         return SessionContext(
-            summary=f"tema={topic}; intent={intent}; detalles={len(details)}",
+            summary=summary,
             last_topic=topic,
             last_intent=intent,
             turns=ctx.turns + 1,
             case_active=True,
-            details_known=details[-6:],
+            details_known=details[-4:],
             emotional_tone=self._detect_emotion(text.lower()),
             last_user_need=intent,
             last_response_style="accion" if enough_context else "exploracion",
@@ -391,13 +330,7 @@ class NeuroGuiaEngine:
         updates = {"items": []}
         if topic != "acompanamiento_general":
             updates["items"].append(
-                {
-                    "categoria": "tema_frecuente",
-                    "clave": "tema_frecuente",
-                    "valor": topic,
-                    "fuente": "conversacion",
-                    "nivel_confianza": 0.8,
-                }
+                {"categoria": "tema_frecuente", "clave": "tema_frecuente", "valor": topic, "fuente": "conversacion", "nivel_confianza": 0.8}
             )
         return updates
 

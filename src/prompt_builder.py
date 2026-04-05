@@ -3,22 +3,47 @@ from __future__ import annotations
 from typing import Any
 
 
+def compact_text(text: str, max_chars: int = 320) -> str:
+    text = " ".join((text or "").split())
+    return text[:max_chars].strip()
+
+
 def build_system_prompt() -> str:
     return (
-        "Eres NeuroGuía, un sistema conversacional híbrido de apoyo no clínico. "
-        "Responde siempre en español con un tono humano, cálido, claro y útil. "
-        "No diagnostiques, no prescribas medicación, no indiques terapia específica "
-        "y no sustituyas profesionales de salud. "
-        "Tu prioridad es ayudar sin confundir más. "
-        "Si ya hay suficiente contexto, evita seguir preguntando lo mismo y ofrece orientación concreta. "
-        "Adapta tu lenguaje al perfil del usuario: "
-        "si es docente, responde con foco en aula y manejo práctico; "
-        "si es madre, padre o cuidador(a), combina contención emocional con acciones realistas; "
-        "si es abuelo(a), usa un tono más afectivo, sencillo y cercano. "
-        "No hables como formulario, no suenes a manual frío y no repitas estructuras. "
-        "Cuando des pasos, ordénalos de forma breve, accionable y fácil de aplicar. "
-        "No cierres siempre con pregunta; hazlo solo si aporta valor real."
+        "Eres NeuroGuía. Responde en español, con tono humano, claro, cálido y útil. "
+        "No diagnostiques, no mediques, no indiques terapia específica y no sustituyas profesionales de salud. "
+        "Si ya hay suficiente contexto, no hagas más preguntas antes de ayudar. "
+        "Da solo lo esencial: explica brevemente el porqué y luego aterriza la acción. "
+        "Usa 1 párrafo corto o de 3 a 5 pasos breves. "
+        "No repitas frases, no suenes a manual y no alargues la respuesta. "
+        "Si el perfil es docente, responde en clave de aula. "
+        "Si es madre, padre o cuidador(a), combina contención y acciones. "
+        "Si es abuelo(a), usa un tono más afectivo y sencillo."
     )
+
+
+def build_session_summary(
+    *,
+    user_profile: dict[str, Any],
+    analysis: dict[str, Any],
+    memory_items: list[dict[str, Any]],
+) -> str:
+    memory_values = []
+    for item in memory_items[:2]:
+        categoria = item.get("categoria", "general")
+        valor = item.get("valor", "")
+        if valor:
+            memory_values.append(f"{categoria}:{valor}")
+
+    summary = (
+        f"rol={user_profile.get('role', 'no definido')}; "
+        f"tema={analysis.get('topic', 'desconocido')}; "
+        f"intención={analysis.get('intent', 'desconocida')}; "
+        f"emoción={analysis.get('emotion', 'acompañamiento')}; "
+        f"contexto_suficiente={analysis.get('enough_context', False)}; "
+        f"memoria={', '.join(memory_values) if memory_values else 'sin_memoria'}"
+    )
+    return compact_text(summary, max_chars=380)
 
 
 def build_user_prompt(
@@ -31,65 +56,41 @@ def build_user_prompt(
     previous_messages: list[tuple[str, str]] | None = None,
 ) -> str:
     previous_messages = previous_messages or []
-    recent_dialogue = "\n".join(
-        f"{role}: {content}" for role, content in previous_messages[-4:]
+    last_assistant = ""
+    for role, content in reversed(previous_messages[-2:]):
+        if role == "assistant":
+            last_assistant = compact_text(content, max_chars=160)
+            break
+
+    summary = build_session_summary(
+        user_profile=user_profile,
+        analysis=analysis,
+        memory_items=memory_items,
     )
 
-    memory_text = "\n".join(
-        f"- {m.get('categoria', 'general')}: {m.get('valor', '')}" for m in memory_items[:6]
-    ) or "- sin memoria relevante"
+    docs_min = []
+    for d in retrieved_docs[:1]:
+        title = d.get("title", "sin título")
+        content = compact_text(d.get("content", ""), max_chars=180)
+        docs_min.append(f"{title}: {content}")
+    docs_text = docs_min[0] if docs_min else "sin_apoyo_curado"
 
-    docs_text = "\n".join(
-        f"- {d.get('title', 'sin título')}: {d.get('content', '')}" for d in retrieved_docs[:4]
-    ) or "- sin conocimiento recuperado"
+    return f"""Resumen:
+{summary}
 
-    profile_text = "\n".join(
-        [
-            f"- rol: {user_profile.get('role', 'no definido')}",
-            f"- nombre preferido: {user_profile.get('display_name', '') or 'no indicado'}",
-            f"- estado o región: {user_profile.get('state', '') or 'no indicado'}",
-            f"- red de apoyo: {user_profile.get('support_network', '') or 'no indicado'}",
-        ]
-    )
+Última respuesta del sistema:
+{last_assistant or 'sin_respuesta_previa'}
 
-    analysis_text = "\n".join(
-        [
-            f"- tema: {analysis.get('topic', 'desconocido')}",
-            f"- intención: {analysis.get('intent', 'desconocida')}",
-            f"- emoción dominante: {analysis.get('emotion', 'acompañamiento')}",
-            f"- crisis: {analysis.get('crisis', 'sin_crisis')}",
-            f"- límite clínico: {analysis.get('clinical_boundary', 'permitida')}",
-            f"- contexto suficiente: {analysis.get('enough_context', False)}",
-            f"- profundidad deseada: {analysis.get('depth', 'media')}",
-        ]
-    )
-
-    return f"""Perfil del usuario:
-{profile_text}
-
-Análisis interno:
-{analysis_text}
-
-Memoria relevante:
-{memory_text}
-
-Conocimiento curado recuperado:
+Apoyo curado:
 {docs_text}
 
-Diálogo reciente:
-{recent_dialogue or "- inicio de conversación"}
+Consulta actual:
+{compact_text(user_message, max_chars=500)}
 
-Consulta actual del usuario:
-{user_message}
-
-Instrucciones de salida:
-- Responde en tono cercano y humano.
-- Si el perfil es docente, da orientación práctica para aula y evita explicaciones vagas.
-- Si el perfil es abuelo(a), usa un tono más afectivo y sencillo.
-- Si el perfil es madre/padre/cuidador(a), combina contención y acciones.
-- Si ya hay suficiente contexto, NO pidas más datos antes de ayudar.
-- Da entre 3 y 6 pasos concretos cuando haga falta.
-- Evita frases repetitivas como “con esto ya se puede trabajar de forma práctica”.
-- No repitas literalmente el patrón de respuestas anteriores.
-- Ayuda de verdad: explica brevemente el porqué y luego aterriza la acción.
+Reglas de salida:
+- Respuesta breve.
+- Máximo 5 pasos.
+- No repitas la pregunta.
+- No uses frases genéricas repetitivas.
+- Ayuda con algo accionable y humano.
 """
