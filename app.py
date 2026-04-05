@@ -379,6 +379,13 @@ display_name = (perfil.get("nombre_mostrado") or "").strip()
 user_memory = load_user_memory()
 
 with st.sidebar:
+    st.markdown("## NeuroGuía") ###################################################################
+    st.caption("Apoyo socioemocional no clínico") ###################################################################
+
+    if SHOW_DEBUG_PANEL: ###################################################################
+        st.write("LLM activo:", ng_engine.llm.enabled) ###################################################################
+        st.write("Modelo:", ng_engine.llm.settings.model) ###################################################################
+
     with st.expander("Resumen", expanded=False):
         st.write(f"**Rol:** {rol}")
         if display_name:

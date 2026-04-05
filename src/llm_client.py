@@ -4,6 +4,7 @@ import os
 from dataclasses import dataclass
 
 import requests
+import streamlit as st
 
 
 @dataclass
@@ -17,10 +18,14 @@ class LLMSettings:
 class LLMClient:
     def __init__(self) -> None:
         self.settings = LLMSettings(
-            api_key=os.getenv("OPENAI_API_KEY", ""),
-            model=os.getenv("OPENAI_MODEL", ""),
-            temperature=float(os.getenv("OPENAI_TEMPERATURE", "0.4")),
-            timeout=int(os.getenv("OPENAI_TIMEOUT", "45")),
+            api_key=st.secrets.get("OPENAI_API_KEY", "") or os.getenv("OPENAI_API_KEY", ""),
+            model=st.secrets.get("OPENAI_MODEL", "") or os.getenv("OPENAI_MODEL", ""),
+            temperature=float(
+                st.secrets.get("OPENAI_TEMPERATURE", os.getenv("OPENAI_TEMPERATURE", "0.4"))
+            ),
+            timeout=int(
+                st.secrets.get("OPENAI_TIMEOUT", os.getenv("OPENAI_TIMEOUT", "45"))
+            ),
         )
 
     @property
