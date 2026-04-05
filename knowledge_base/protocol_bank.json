@@ -1,0 +1,144 @@
+[
+  {
+    "id": "protocolo_vinculo_familiar",
+    "topic": "vinculo_familiar",
+    "title": "Reconstrucción del vínculo sin presión",
+    "keywords": [
+      "acercarme",
+      "conectar",
+      "cariñosos",
+      "vinculo",
+      "hijos",
+      "nietos",
+      "afecto",
+      "relacion"
+    ],
+    "lead": "Cuando hay AACC, TEA o TDAH, el vínculo suele fortalecerse mejor con presencia predecible y amable que con conversaciones largas o presión emocional.",
+    "actions": [
+      "Empieza desde algo que sí les interese, no desde una exigencia afectiva.",
+      "Usa acercamientos breves: un comentario amable, sentarte cerca o acompañar una actividad.",
+      "Evita preguntas muy amplias o seguidas cuando notes saturación.",
+      "Crea pequeños rituales repetidos, como una frase, una lectura corta o un momento fijo del día."
+    ],
+    "why_it_helps": "Baja la sensación de presión, aumenta seguridad relacional y permite que la cercanía aparezca de forma más natural.",
+    "closing": "Si lo necesitas, esto se puede convertir en una rutina sencilla para casa."
+  },
+  {
+    "id": "protocolo_sueno",
+    "topic": "sueno",
+    "title": "Acompañamiento inicial para sueño e insomnio",
+    "keywords": [
+      "duerme",
+      "insomnio",
+      "noche",
+      "sueno",
+      "sueño",
+      "conciliar",
+      "dormir"
+    ],
+    "lead": "En muchos perfiles neurodivergentes, el sueño se altera por sobrecarga sensorial, ansiedad anticipatoria, hiperfoco o rutinas poco previsibles.",
+    "actions": [
+      "Observa qué ocurre en la hora previa a dormir: pantallas, ruido, discusiones, hambre o ansiedad.",
+      "Reduce estímulos progresivamente y mantén una secuencia breve y repetible antes de acostarse.",
+      "Evita convertir la cama en un espacio de regaño, negociación larga o presión.",
+      "Registra durante varios días si hay patrones de horario, detonantes o señales previas."
+    ],
+    "why_it_helps": "Permite identificar detonantes y crear una sensación de previsibilidad, que suele facilitar el inicio del sueño.",
+    "closing": "Después se puede traducir esto a una rutina concreta para la edad y dinámica familiar."
+  },
+  {
+    "id": "protocolo_escuela_inclusiva",
+    "topic": "escuela_inclusiva",
+    "title": "Intervención breve para aula inclusiva",
+    "keywords": [
+      "escuela",
+      "maestra",
+      "docente",
+      "clase",
+      "alumno",
+      "companeros",
+      "compañeros",
+      "salon",
+      "salón"
+    ],
+    "lead": "En el aula, muchas conductas no son solo desafío; también pueden expresar saturación, frustración comunicativa o necesidad de ajuste.",
+    "actions": [
+      "Primero baja estímulos y protege al grupo antes de corregir o razonar.",
+      "Usa una instrucción corta, clara y repetible.",
+      "Evita corregir en público cuando el alumno ya está muy activado.",
+      "Observa qué pasó justo antes para detectar detonantes y prevenir el siguiente episodio."
+    ],
+    "why_it_helps": "Disminuye la escalada, preserva la dignidad del alumno y facilita una intervención más reguladora que punitiva.",
+    "closing": "Si quieres, después se convierte esto en una estrategia breve de aula."
+  },
+  {
+    "id": "protocolo_sobrecarga_sensorial",
+    "topic": "sobrecarga_sensorial",
+    "title": "Apoyo inicial ante sobrecarga sensorial",
+    "keywords": [
+      "sensorial",
+      "ruido",
+      "luces",
+      "sobrecarga",
+      "estimulos",
+      "estímulos",
+      "hipersensibilidad"
+    ],
+    "lead": "La sobrecarga sensorial puede sentirse como una emergencia real. No se resuelve pidiendo calma de inmediato, sino reduciendo demanda y estímulos.",
+    "actions": [
+      "Reduce ruido, luz o movimiento si es posible.",
+      "Habla poco y con tono estable.",
+      "Evita tocar o insistir demasiado si la persona está saturada.",
+      "Permite un espacio de pausa antes de pedir explicación o conversación."
+    ],
+    "why_it_helps": "Baja la exigencia del sistema nervioso y facilita que la persona recupere regulación antes de interactuar.",
+    "closing": "Luego se puede identificar qué estímulos concretos disparan estos momentos."
+  },
+  {
+    "id": "protocolo_cansancio_cuidador",
+    "topic": "cansancio_cuidador",
+    "title": "Contención inicial para cuidador rebasado",
+    "keywords": [
+      "agotada",
+      "agotado",
+      "rebasada",
+      "rebasado",
+      "cansada",
+      "cansado",
+      "ya no puedo",
+      "me rebasa"
+    ],
+    "lead": "El cansancio del cuidador no es falta de amor; muchas veces es saturación sostenida, exigencia constante y poco descanso real.",
+    "actions": [
+      "Elige una sola prioridad para hoy; no intentes resolver todo al mismo tiempo.",
+      "Baja la autoexigencia y distingue lo urgente de lo importante.",
+      "Busca un microespacio de pausa, aunque sea de pocos minutos, sin usarlo para otra tarea.",
+      "Si hay red de apoyo, pide ayuda concreta y específica, no una ayuda vaga."
+    ],
+    "why_it_helps": "Reduce la sensación de fracaso global y devuelve una mínima sensación de control sobre el día.",
+    "closing": "Después se puede ordenar esto en un plan pequeño de autocuidado realista."
+  },
+  {
+    "id": "protocolo_shutdown",
+    "topic": "shutdown",
+    "title": "Apoyo inicial ante cierre o apagamiento",
+    "keywords": [
+      "se encierra",
+      "no me habla",
+      "shutdown",
+      "callado",
+      "silencio",
+      "aisla",
+      "aísla"
+    ],
+    "lead": "Cuando hay cierre o apagamiento, insistir mucho en hablar puede aumentar la presión. Primero conviene ofrecer seguridad y poca demanda.",
+    "actions": [
+      "Valida lo que observas sin invadir: 'veo que hoy necesitas más espacio'.",
+      "Reduce preguntas abiertas en ese momento.",
+      "Ofrece opciones pequeñas y concretas, no decisiones grandes.",
+      "Vuelve a intentar el acercamiento más tarde, con calma y sin reproche."
+    ],
+    "why_it_helps": "Permite que la persona no se sienta perseguida ni obligada a responder cuando su energía está baja.",
+    "closing": "Si quieres, luego se convierte esto en una guía de frases breves para usar en casa."
+  }
+]

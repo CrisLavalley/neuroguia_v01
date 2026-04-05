@@ -7,7 +7,7 @@ from pathlib import Path
 from typing import Any
 
 from src.llm_client import LLMClient
-from src.prompt_builder import build_system_prompt, build_user_prompt, build_session_summary
+from src.prompt_builder import build_system_prompt, build_user_prompt, build_session_summary, compact_text
 
 BASE = Path(__file__).resolve().parents[1]
 KB_DIR = BASE / "knowledge_base"
@@ -25,16 +25,13 @@ def _safe_load_json(path: Path, default: Any) -> Any:
 @dataclass
 class SessionContext:
     summary: str = ""
+    distilled_case: str = ""
     last_topic: str = ""
     last_intent: str = ""
     turns: int = 0
-    user_goal: str = ""
-    case_active: bool = False
-    details_known: list[str] = field(default_factory=list)
-    emotional_tone: str = ""
-    last_user_need: str = ""
-    last_response_style: str = ""
+    llm_calls: int = 0
     enough_context: bool = False
+    details_known: list[str] = field(default_factory=list)
 
 
 @dataclass
@@ -56,33 +53,24 @@ class AnalysisResult:
 
 class NeuroGuiaEngine:
     def __init__(self) -> None:
-        self.rag_docs = _safe_load_json(KB_DIR / "rag_documents.json", [])
-        self.protocols = _safe_load_json(KB_DIR / "protocolos_intervencion.json", {})
         self.llm = LLMClient()
-        self.boundary_patterns = [
-            "diagnóstico", "diagnostico", "medicación", "medicacion", "medicamento",
-            "receta", "dosis", "terapia específica", "terapia especifica", "pastilla",
-            "fármaco", "farmaco", "tratamiento", "medicar", "psiquiatra", "neurólogo",
-            "neurologo", "antidepresivo", "ansiolítico", "ansiolitico"
-        ]
-        self.high_risk_patterns = [
-            "suicid", "se quiere hacer daño", "se quiere lastimar", "arma",
-            "convuls", "no respira", "me quiero morir", "quitarme la vida"
-        ]
-        self.minimal_messages = {"si", "sí", "ok", "vale", "gracias", "ajá", "aja", "entiendo", "y entonces?", "y entonces", "mmm"}
+        self.protocol_bank = _safe_load_json(KB_DIR / "protocol_bank.json", [])
+        self.minimal_messages = {"si", "sí", "ok", "vale", "gracias", "aja", "ajá", "y entonces", "y entonces?", "entiendo", "mmm"}
+        self.boundary_patterns = ["diagnóstico","diagnostico","medicación","medicacion","medicamento","dosis","pastilla","tratamiento","medicar","psiquiatra","neurólogo","neurologo"]
+        self.high_risk_patterns = ["suicid","me quiero morir","se quiere lastimar","arma","no respira","convuls"]
 
     def build_welcome_message(self, display_name: str = "", role: str = "", user_memory: list[dict[str, Any]] | None = None) -> str:
-        memory = user_memory or []
-        temas = [m.get("valor", "") for m in memory if m.get("categoria") == "tema_frecuente"]
-        memory_note = ""
-        if temas:
-            tema = self._topic_to_human(Counter(temas).most_common(1)[0][0])
-            memory_note = f" También recuerdo que antes apareció el tema de **{tema}**."
         saludo = f"Hola, {display_name}." if display_name else "Hola."
-        role_phrase = self._role_phrase(role)
+        role_phrase = {
+            "madre": " como madre",
+            "padre": " como padre",
+            "docente": " desde tu lugar docente",
+            "cuidador(a)": " desde tu papel de cuidado",
+            "abuelo(a)": " desde tu lugar de abuelo o abuela",
+        }.get(role, "")
         return (
-            f"{saludo} Estoy aquí para acompañarte{role_phrase} con claridad y calidez.{memory_note}\n\n"
-            "Puedes escribirme una situación concreta, una duda o algo que te esté pesando hoy. Voy a intentar responderte de forma útil, breve y aterrizada."
+            f"{saludo} Estoy aquí para acompañarte{role_phrase} con claridad y calidez.\n\n"
+            "Puedes escribirme con libertad. Mi trabajo es ayudarte a ordenar lo que pasa y darte una orientación útil, breve y aterrizada."
         )
 
     def analyze(self, message: str, context_dict: dict[str, Any] | None = None, user_memory: list[dict[str, Any]] | None = None,
@@ -99,126 +87,174 @@ class NeuroGuiaEngine:
         emotion = self._detect_emotion(lowered)
         crisis = self._detect_crisis(lowered)
         intensity = self._estimate_intensity(lowered)
-        confidence = self._estimate_confidence(topic, intent)
         clinical = "prohibida" if self._needs_clinical_boundary(lowered) else "permitida"
         enough_context = self._has_enough_context(lowered, ctx, topic, intent)
-        depth = self._depth_by_role(profile.get("role", ""), lowered, ctx)
-        rag_hits = self._retrieve_rag(lowered, topic)
 
-        analysis = {
-            "topic": topic,
-            "intent": intent,
-            "emotion": emotion,
-            "crisis": crisis,
-            "clinical_boundary": clinical,
-            "enough_context": enough_context,
-            "depth": depth,
-        }
+        distilled_case = self._distill_user_message(text, topic, intent, emotion)
+        protocol_hits = self._retrieve_protocols(lowered, topic)
+        protocol_response = self._protocol_first_response(topic, profile.get("role", ""), protocol_hits)
 
-        response, source = self._generate_cost_optimized_response(
-            text=text,
-            lowered=lowered,
-            profile=profile,
-            memory=memory,
-            rag_hits=rag_hits,
-            analysis=analysis,
-            previous_messages=previous_messages,
+        response, source, llm_used = self._resolve_response(
+            text=text, lowered=lowered, topic=topic, intent=intent, emotion=emotion, clinical=clinical, crisis=crisis,
+            profile=profile, memory=memory, previous_messages=previous_messages, ctx=ctx,
+            protocol_hits=protocol_hits, protocol_response=protocol_response, distilled_case=distilled_case, enough_context=enough_context
         )
 
-        new_ctx = self._update_context(ctx, text, topic, intent, enough_context, profile, analysis, memory)
-        memory_updates = self._propose_memory_updates(lowered, topic, profile)
+        summary = build_session_summary(
+            user_profile=profile,
+            analysis={"topic": topic, "intent": intent, "emotion": emotion, "enough_context": enough_context},
+            memory_items=memory,
+        )
+
+        new_ctx = SessionContext(
+            summary=summary,
+            distilled_case=distilled_case,
+            last_topic=topic,
+            last_intent=intent,
+            turns=ctx.turns + 1,
+            llm_calls=ctx.llm_calls + (1 if llm_used else 0),
+            enough_context=enough_context,
+            details_known=(ctx.details_known + [compact_text(text, 100)])[-4:],
+        )
+
+        memory_updates = self._propose_memory_updates(topic)
 
         return AnalysisResult(
             emocion=emotion,
-            probabilidad=confidence,
+            probabilidad=0.78,
             intensidad=intensity,
             crisis_tipo=crisis,
             filtro_clinico=clinical,
-            protocolo=self._select_protocol(topic, clinical),
+            protocolo=protocol_hits[0]["id"] if protocol_hits else "protocolo_acompanamiento",
             respuesta=response,
             fuente_respuesta=source,
             intent=intent,
             topic=topic,
-            recurso_rag=rag_hits[:1],
+            recurso_rag=protocol_hits[:1],
             context=new_ctx,
             memory_updates=memory_updates,
         )
 
-    def _should_call_llm(self, lowered: str, analysis: dict[str, Any], ctx: SessionContext) -> bool:
+    def _resolve_response(self, *, text: str, lowered: str, topic: str, intent: str, emotion: str, clinical: str, crisis: str,
+                          profile: dict[str, Any], memory: list[dict[str, Any]], previous_messages: list[tuple[str, str]],
+                          ctx: SessionContext, protocol_hits: list[dict[str, Any]], protocol_response: str,
+                          distilled_case: str, enough_context: bool) -> tuple[str, str, bool]:
+        if clinical == "prohibida":
+            return ("Te leo con cuidado. No puedo diagnosticar ni indicar medicación, pero sí ayudarte a ordenar lo que observas y preparar una explicación clara para consulta.", "limite_no_clinico", False)
+        if crisis == "riesgo_alto":
+            return ("Lo que describes suena a una situación de alto riesgo. Ahora lo más importante es buscar apoyo presencial inmediato con una persona adulta responsable o un servicio de emergencia.", "alerta_riesgo", False)
         if lowered in self.minimal_messages:
-            return False
-        if len(lowered.split()) <= 2:
-            return False
-        if analysis["clinical_boundary"] == "prohibida" or analysis["crisis"] == "riesgo_alto":
-            return False
-        if not analysis["enough_context"] and analysis["intent"] not in {"comprension", "acompanamiento_emocional"}:
-            return False
-        return True
+            return (self._local_followup(lowered), "local_followup", False)
 
-    def _generate_cost_optimized_response(self, *, text: str, lowered: str, profile: dict[str, Any], memory: list[dict[str, Any]],
-                                          rag_hits: list[dict[str, Any]], analysis: dict[str, Any],
-                                          previous_messages: list[tuple[str, str]]) -> tuple[str, str]:
-        if analysis["clinical_boundary"] == "prohibida":
-            return (
-                "Te leo con cuidado. No puedo diagnosticar, indicar medicación ni sustituir a profesionales de salud. Sí puedo ayudarte a ordenar lo que observas y a preparar una explicación clara para consulta.",
-                "limite_no_clinico",
-            )
+        if protocol_response and topic != "acompanamiento_general":
+            if self._should_call_llm(lowered, enough_context, ctx):
+                system_prompt = build_system_prompt()
+                user_prompt = build_user_prompt(
+                    user_message=f"Caso destilado: {distilled_case}\n\nBase protocolaria: {protocol_response}",
+                    user_profile=profile,
+                    analysis={"topic": topic, "intent": intent, "emotion": emotion, "enough_context": enough_context},
+                    memory_items=memory,
+                    retrieved_docs=protocol_hits[:1],
+                    previous_messages=previous_messages,
+                )
+                llm_text = self.llm.generate(system_prompt, user_prompt)
+                if llm_text:
+                    cost = self.llm.last_meta.get("estimated_cost_usd", 0.0)
+                    return (llm_text.strip(), f"llm:{self.llm.settings.model} | costo≈${cost:.6f}", True)
+            reason = self.llm.last_error or "sin_llm"
+            return (protocol_response, f"protocol_first ({reason})", False)
 
-        if analysis["crisis"] == "riesgo_alto":
-            return (
-                "Lo que describes suena a una situación de alto riesgo. Ahora lo más seguro es buscar apoyo presencial inmediato con una persona adulta responsable o un servicio de emergencia.",
-                "alerta_riesgo",
-            )
-
-        if not self._should_call_llm(lowered, analysis, SessionContext()):
-            return self._local_short_response(lowered, profile.get("role", ""), analysis), "local_short"
-
-        if self.llm.enabled:
+        if self._should_call_llm(lowered, enough_context, ctx):
             system_prompt = build_system_prompt()
             user_prompt = build_user_prompt(
-                user_message=text,
+                user_message=distilled_case,
                 user_profile=profile,
-                analysis=analysis,
+                analysis={"topic": topic, "intent": intent, "emotion": emotion, "enough_context": enough_context},
                 memory_items=memory,
-                retrieved_docs=rag_hits,
+                retrieved_docs=[],
                 previous_messages=previous_messages,
             )
             llm_text = self.llm.generate(system_prompt, user_prompt)
             if llm_text:
-                meta = self.llm.last_meta or {}
-                return llm_text.strip(), f"llm:{self.llm.settings.model} | costo≈${meta.get('estimated_cost_usd', 0.0):.6f}"
+                cost = self.llm.last_meta.get("estimated_cost_usd", 0.0)
+                return (llm_text.strip(), f"llm:{self.llm.settings.model} | costo≈${cost:.6f}", True)
 
-        fallback = self._deterministic_fallback(lowered=lowered, topic=analysis["topic"], intent=analysis["intent"], role=profile.get("role", ""), enough_context=analysis["enough_context"])
-        reason = self.llm.last_error or "sin detalle"
-        meta = self.llm.last_meta or {}
-        return fallback, f"fallback_local ({reason}) | costo_est≈${meta.get('estimated_cost_usd', 0.0):.6f}"
+        reason = self.llm.last_error or "modo_local"
+        return (self._short_local_fallback(topic), f"fallback_local ({reason})", False)
 
-    def _local_short_response(self, lowered: str, role: str, analysis: dict[str, Any]) -> str:
+    def _should_call_llm(self, lowered: str, enough_context: bool, ctx: SessionContext) -> bool:
+        if len(lowered.split()) <= 2 or lowered in self.minimal_messages:
+            return False
+        if ctx.llm_calls >= 2:
+            return False
+        if not enough_context:
+            return False
+        return True
+
+    def _local_followup(self, lowered: str) -> str:
         if lowered in {"gracias", "ok", "vale", "sí", "si"}:
-            return "Claro. Voy contigo. Si quieres, ahora lo traduzco a algo más concreto."
-        if lowered in {"y entonces?", "y entonces"}:
-            return "Lo aterrizo: dime qué te urge más, entender lo que pasa o saber qué hacer primero."
-        if role == "docente":
-            return "Voy contigo. Cuéntame en una sola frase qué pasó en el aula y qué quieres lograr, y te doy pasos concretos."
-        return "Te sigo. Dime qué te gustaría resolver primero y lo bajamos a algo breve y útil."
+            return "Claro. Sigo contigo. Si quieres, ahora lo aterrizo en algo todavía más concreto."
+        return "Te sigo. Dime qué te urge más: entender lo que pasa o saber qué hacer primero."
 
-    def _deterministic_fallback(self, *, lowered: str, topic: str, intent: str, role: str, enough_context: bool) -> str:
-        opening = self._empathetic_opening(lowered, role)
-        if enough_context and topic == "escuela_inclusiva":
-            return f"{opening}\n\nMientras recuperamos la capa avanzada, te dejo un paso breve: baja estímulos, usa una instrucción corta, evita corregir en público y observa qué detonó el momento."
-        if enough_context and topic == "vinculo_familiar":
-            return f"{opening}\n\nComo orientación breve: empieza con momentos pequeños, evita el reproche directo y acércate desde algo que a ellos les interese."
-        if enough_context and topic == "sueno":
-            return f"{opening}\n\nComo primer paso, observa qué ocurre en la hora previa a dormir: pantallas, ruido, ansiedad o sobrecarga."
-        return f"{opening}\n\nEstoy respondiendo en modo local austero. Puedo acompañarte brevemente, pero la versión más elaborada depende de la capa LLM."
+    def _short_local_fallback(self, topic: str) -> str:
+        if topic == "sueno":
+            return "Como primer paso, observa qué ocurre en la hora previa a dormir: pantallas, ruido, ansiedad o sobrecarga. Si quieres, luego lo traducimos a una rutina breve."
+        if topic == "vinculo_familiar":
+            return "Como orientación breve: evita el reproche directo, acércate desde algo que sí les interese y busca momentos pequeños, predecibles y amables."
+        if topic == "escuela_inclusiva":
+            return "Como primer apoyo: baja estímulos, usa una instrucción corta, evita corregir en público y detecta qué detonó el momento."
+        return "Puedo acompañarte con una orientación breve. Si me dices qué te preocupa más, lo bajo a algo práctico."
+
+    def _distill_user_message(self, text: str, topic: str, intent: str, emotion: str) -> str:
+        lowered = text.lower()
+        conditions = []
+        for token in ["tea","tdah","aacc","autismo","dislexia","dispraxia","discalculia","tourette","sensorial"]:
+            if token in lowered:
+                conditions.append(token.upper() if token in {"tea","tdah","aacc"} else token)
+        situation = compact_text(text, 120)
+        distilled = f"tema={topic}; intencion={intent}; emocion={emotion}; condiciones={', '.join(conditions) if conditions else 'no_identificadas'}; situacion={situation}"
+        return compact_text(distilled, 220)
+
+    def _retrieve_protocols(self, lowered: str, topic: str) -> list[dict[str, Any]]:
+        hits = []
+        for doc in self.protocol_bank:
+            score = 3 if doc.get("topic") == topic else 0
+            for kw in doc.get("keywords", []):
+                if kw in lowered:
+                    score += 1
+            if score > 0:
+                hits.append((score, doc))
+        hits.sort(key=lambda x: x[0], reverse=True)
+        return [doc for _, doc in hits[:2]]
+
+    def _protocol_first_response(self, topic: str, role: str, protocol_hits: list[dict[str, Any]]) -> str:
+        if not protocol_hits:
+            return ""
+        doc = protocol_hits[0]
+        opening = {
+            "docente": "Entiendo. En el aula, una situación así puede desgastar mucho.",
+            "madre": "Te leo con cuidado. Esto puede doler y cansar a la vez.",
+            "padre": "Te leo con cuidado. Esto puede doler y cansar a la vez.",
+            "cuidador(a)": "Te leo con cuidado. Esto puede doler y cansar a la vez.",
+            "abuelo(a)": "Te acompaño. Estas situaciones tocan fibras muy profundas.",
+        }.get(role, "Gracias por abrir esto. Lo tomo con cuidado.")
+        actions = doc.get("actions", [])[:4]
+        action_lines = "\n".join(f"{i+1}. {a}" for i, a in enumerate(actions))
+        why = doc.get("why_it_helps", "")
+        closing = doc.get("closing", "")
+        return f"{opening}\n\n{doc.get('lead', '')}\n\n{action_lines}\n\nPor qué ayuda: {why}\n\n{closing}".strip()
 
     def _detect_topic(self, text: str, ctx: SessionContext, memory: list[dict[str, Any]]) -> str:
-        if any(x in text for x in ["escuela", "maestra", "docente", "clase", "tarea", "alumno", "compañeros", "companeros"]):
+        if any(x in text for x in ["escuela","maestra","docente","clase","tarea","salón","salon","alumno","compañeros","companeros"]):
             return "escuela_inclusiva"
-        if any(x in text for x in ["duerme", "sueño", "sueno", "insomnio", "noche"]):
+        if any(x in text for x in ["duerme","sueño","sueno","insomnio","noche","dormir"]):
             return "sueno"
-        if any(x in text for x in ["acercarme", "empatizar", "conectar", "nietos", "hijos", "cariñosos", "carinosos", "vínculo", "vinculo"]):
+        if any(x in text for x in ["acercarme","empatizar","conectar","cariñosos","carinosos","afecto","vínculo","vinculo","relación","relacion","nietos","hijos"]):
             return "vinculo_familiar"
+        if any(x in text for x in ["sensorial","ruido","luces","sobrecarga","estimulos","estímulos"]):
+            return "sobrecarga_sensorial"
+        if any(x in text for x in ["agotada","agotado","rebasada","rebasado","cansada","cansado","ya no puedo"]):
+            return "cansancio_cuidador"
         temas = [m.get("valor", "") for m in memory if m.get("categoria") == "tema_frecuente"]
         if temas:
             return Counter(temas).most_common(1)[0][0]
@@ -227,21 +263,23 @@ class NeuroGuiaEngine:
     def _detect_intent(self, text: str, ctx: SessionContext) -> str:
         if self._needs_clinical_boundary(text):
             return "consulta_clinica"
-        if any(x in text for x in ["cómo", "como", "qué hago", "que hago", "qué puedo hacer", "que puedo hacer"]):
+        if any(x in text for x in ["cómo","como","qué hago","que hago","qué puedo hacer","que puedo hacer"]):
             return "orientacion_practica"
-        if any(x in text for x in ["por qué", "por que", "quisiera entender", "quiero entender", "no entiendo"]):
+        if any(x in text for x in ["por qué","por que","quisiera entender","quiero entender","no entiendo"]):
             return "comprension"
-        if any(x in text for x in ["me duele", "me siento", "me preocupa"]):
+        if any(x in text for x in ["me duele","me siento","me preocupa","me rebasa"]):
             return "acompanamiento_emocional"
         if text in self.minimal_messages or len(text.split()) <= 4:
-            return "seguimiento" if ctx.case_active else "acompanamiento"
+            return "seguimiento" if ctx.turns > 0 else "acompanamiento"
         return "acompanamiento"
 
     def _detect_emotion(self, text: str) -> str:
-        if any(x in text for x in ["preocupada", "preocupado", "miedo", "ansiedad", "ansiosa", "ansioso"]):
+        if any(x in text for x in ["preocupada","preocupado","miedo","ansiedad","ansiosa","ansioso"]):
             return "ansiedad"
-        if any(x in text for x in ["triste", "dolor", "me duele", "me lastima"]):
+        if any(x in text for x in ["triste","dolor","me duele","me lastima"]):
             return "tristeza"
+        if any(x in text for x in ["agotada","agotado","rebasada","rebasado"]):
+            return "agotamiento"
         return "acompanamiento"
 
     def _detect_crisis(self, text: str) -> str:
@@ -250,36 +288,14 @@ class NeuroGuiaEngine:
         return "sin_crisis"
 
     def _estimate_intensity(self, text: str) -> float:
-        score = 0.28
-        for token in ["urgente", "muy mal", "demasiado", "me duele", "me lastima", "berrinche"]:
+        score = 0.30
+        for token in ["urgente","muy mal","demasiado","me duele","ya no puedo","explota","grita"]:
             if token in text:
                 score += 0.08
-        return min(0.92, round(score, 2))
-
-    def _estimate_confidence(self, topic: str, intent: str) -> float:
-        score = 0.55 + (0.14 if topic != "acompanamiento_general" else 0) + (0.07 if intent != "acompanamiento" else 0)
-        return min(0.9, round(score, 2))
+        return min(0.95, round(score, 2))
 
     def _needs_clinical_boundary(self, text: str) -> bool:
         return any(k in text for k in self.boundary_patterns)
-
-    def _select_protocol(self, topic: str, clinical: str) -> str:
-        if clinical == "prohibida":
-            return "protocolo_seguridad_clinica"
-        mapping = {"sueno": "protocolo_sueno", "escuela_inclusiva": "protocolo_escuela_inclusiva", "vinculo_familiar": "protocolo_vinculo_familiar"}
-        return mapping.get(topic, "protocolo_acompanamiento")
-
-    def _retrieve_rag(self, text: str, topic: str) -> list[dict[str, Any]]:
-        hits = []
-        for doc in self.rag_docs:
-            score = 3 if doc.get("topic") == topic else 0
-            for kw in doc.get("keywords", []):
-                if kw in text:
-                    score += 1
-            if score > 0:
-                hits.append((score, doc))
-        hits.sort(key=lambda x: x[0], reverse=True)
-        return [doc for _, doc in hits[:1]]
 
     def _has_enough_context(self, text: str, ctx: SessionContext, topic: str, intent: str) -> bool:
         if len(text.split()) >= 7:
@@ -290,56 +306,8 @@ class NeuroGuiaEngine:
             return True
         return False
 
-    def _role_phrase(self, role: str) -> str:
-        mapping = {"madre": " como madre", "padre": " como padre", "abuelo(a)": " desde tu lugar de abuelo o abuela", "cuidador(a)": " desde tu papel de cuidado", "docente": " desde tu lugar docente"}
-        return mapping.get(role, "")
-
-    def _topic_to_human(self, topic: str) -> str:
-        mapping = {"vinculo_familiar": "vínculo familiar", "escuela_inclusiva": "escuela", "sueno": "sueño"}
-        return mapping.get(topic, topic.replace("_", " "))
-
-    def _empathetic_opening(self, text: str, role: str) -> str:
-        if role == "docente":
-            return "Entiendo. En el aula, una situación así puede desgastar mucho."
-        if any(x in text for x in ["me duele", "triste", "me preocupa"]):
-            return "Te leo con cuidado. Eso puede pesar bastante."
-        return "Gracias por abrir esto. Lo tomo con cuidado."
-
-    def _update_context(self, ctx: SessionContext, text: str, topic: str, intent: str, enough_context: bool,
-                        profile: dict[str, Any], analysis: dict[str, Any], memory: list[dict[str, Any]]) -> SessionContext:
-        details = list(ctx.details_known)
-        if text and text not in details:
-            details.append(text[:120])
-
-        summary = build_session_summary(user_profile=profile, analysis=analysis, memory_items=memory)
-
-        return SessionContext(
-            summary=summary,
-            last_topic=topic,
-            last_intent=intent,
-            turns=ctx.turns + 1,
-            case_active=True,
-            details_known=details[-4:],
-            emotional_tone=self._detect_emotion(text.lower()),
-            last_user_need=intent,
-            last_response_style="accion" if enough_context else "exploracion",
-            enough_context=enough_context,
-        )
-
-    def _propose_memory_updates(self, text: str, topic: str, user_profile: dict[str, Any]) -> dict[str, Any]:
-        updates = {"items": []}
+    def _propose_memory_updates(self, topic: str) -> dict[str, Any]:
+        items = []
         if topic != "acompanamiento_general":
-            updates["items"].append(
-                {"categoria": "tema_frecuente", "clave": "tema_frecuente", "valor": topic, "fuente": "conversacion", "nivel_confianza": 0.8}
-            )
-        return updates
-
-
-_ENGINE = None
-
-
-def get_ng_engine() -> NeuroGuiaEngine:
-    global _ENGINE
-    if _ENGINE is None:
-        _ENGINE = NeuroGuiaEngine()
-    return _ENGINE
+            items.append({"categoria": "tema_frecuente", "clave": "tema_frecuente", "valor": topic, "fuente": "conversacion", "nivel_confianza": 0.8})
+        return {"items": items}
