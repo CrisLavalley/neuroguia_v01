@@ -12,10 +12,10 @@ from src.database import get_engine, init_db, read_sql_df
 from src.orchestrator import SessionContext, get_ng_engine
 
 st.set_page_config(
-    page_title="NeuroGuía híbrido",
+    page_title="NeuroGuía",
     page_icon="🧠",
     layout="wide",
-    initial_sidebar_state="collapsed",
+    initial_sidebar_state="expanded",
 )
 
 init_db()
@@ -214,40 +214,93 @@ def start_new_session() -> None:
     st.session_state.session_started = False
 
 
+def get_active_profile() -> dict:
+    df = load_profile()
+    return df.iloc[0].to_dict() if not df.empty else {}
+
+
+def intensity_label(value: float) -> str:
+    if value >= 0.75:
+        return "Alta"
+    if value >= 0.5:
+        return "Media"
+    return "Baja"
+
+
+def topic_to_human(topic: str) -> str:
+    mapping = {
+        "vinculo_familiar": "Vínculo familiar",
+        "shutdown": "Cierre o saturación",
+        "meltdown": "Desborde",
+        "escuela_inclusiva": "Escuela",
+        "acompanamiento_cuidador": "Cansancio del cuidador",
+        "sueno": "Sueño",
+        "acompanamiento_general": "Acompañamiento general",
+    }
+    return mapping.get(topic, topic.replace("_", " ").title())
+
+
 st.markdown(
     '''
     <style>
-    .stApp { background: linear-gradient(180deg, #fcfbff 0%, #f7f4ff 100%); }
-    .block-container { max-width: 920px; padding-top: 1.6rem; padding-bottom: 2rem; }
-    .shell {
-        background: rgba(255,255,255,0.82);
-        border: 1px solid #ece7ff;
-        border-radius: 26px;
-        padding: 22px 22px 14px 22px;
-        box-shadow: 0 14px 34px rgba(90, 65, 155, 0.06);
-        margin-bottom: 14px;
+    .stApp { background: linear-gradient(180deg, #f5f7fc 0%, #eef2ff 100%); }
+    .block-container { padding-top: 1rem; padding-bottom: 1.5rem; max-width: 1500px; }
+    section[data-testid="stSidebar"] { background: #ffffff; border-right: 1px solid #e7eaf3; }
+    .brandbar {
+        background: linear-gradient(90deg, #1f3b72 0%, #2b4f90 100%);
+        color: white; padding: 18px 22px; border-radius: 18px; margin-bottom: 18px;
+        box-shadow: 0 10px 30px rgba(31,59,114,0.18);
     }
-    .brand {
-        display:inline-block; padding: 6px 12px; border-radius: 999px;
-        background:#f1eaff; color:#6941c6; font-size:0.88rem; font-weight:700; margin-bottom:10px;
+    .brandtitle { font-size: 2rem; font-weight: 800; margin-bottom: 6px; }
+    .brandsub { font-size: 1rem; opacity: 0.92; line-height: 1.45; }
+    .metric-card {
+        background: white; border: 1px solid #e5eaf5; border-radius: 16px; padding: 14px 16px;
+        box-shadow: 0 8px 20px rgba(39, 53, 93, 0.05); margin-bottom: 10px; min-height: 84px;
     }
-    .title { font-size: 2.15rem; font-weight: 800; color:#2e2540; margin-bottom:4px; }
-    .subtitle { color:#615b74; line-height:1.55; font-size:1rem; margin-bottom:10px; }
-    .privacy { margin-top:10px; color:#726b86; font-size:0.92rem; }
+    .metric-label { font-size: 0.85rem; color: #667085; margin-bottom: 6px; }
+    .metric-value { font-size: 1.35rem; font-weight: 800; color: #1f2937; }
+    .panel-card {
+        background: white; border: 1px solid #e5eaf5; border-radius: 18px; padding: 18px;
+        box-shadow: 0 10px 24px rgba(39, 53, 93, 0.05); margin-bottom: 14px;
+    }
+    .panel-title { font-size: 1.1rem; font-weight: 800; color: #24324a; margin-bottom: 12px; }
+    .status-box {
+        background: #f8fafc; border: 1px solid #e5e7eb; border-radius: 14px; padding: 14px; margin-bottom: 12px;
+    }
+    .status-label { font-size: 0.85rem; color: #667085; margin-bottom: 6px; }
+    .status-value { font-size: 1rem; font-weight: 700; color: #111827; }
+    .soft-badge {
+        display:inline-block; padding: 5px 10px; border-radius: 999px; font-size: 0.82rem;
+        background: #e8f0ff; color: #2859c5; font-weight: 700; margin-bottom: 10px;
+    }
+    .privacy-note {
+        background: #f9fafb; border: 1px dashed #d0d5dd; border-radius: 12px; padding: 12px 14px;
+        color: #475467; font-size: 0.92rem;
+    }
     .stChatMessage { background: transparent !important; }
+    .chat-shell {
+        background: white; border: 1px solid #e5eaf5; border-radius: 18px; padding: 16px;
+        box-shadow: 0 10px 24px rgba(39, 53, 93, 0.05);
+    }
+    .helper-box {
+        background: #eef4ff; border: 1px solid #dce8ff; border-radius: 14px; padding: 12px 14px;
+        color: #35507a; font-size: 0.95rem; margin-bottom: 12px;
+    }
     </style>
     ''',
     unsafe_allow_html=True,
 )
 
-user_df = load_profile()
-perfil_existente = not user_df.empty
+profile_df = load_profile()
+perfil_existente = not profile_df.empty
 
 with st.sidebar:
-    st.markdown("### Perfil")
+    st.markdown("## NeuroGuía")
+    st.caption("Apoyo socioemocional no clínico")
+
     if perfil_existente:
-        perfil = user_df.iloc[0].to_dict()
-        st.success(f"Activo: {perfil.get('rol_usuario', 'usuario')}")
+        perfil = profile_df.iloc[0].to_dict()
+        st.success(f"Perfil activo: {perfil.get('rol_usuario', 'usuario')}")
         with st.expander("Editar perfil", expanded=False):
             with st.form("form_editar_perfil"):
                 opciones_rol = ["madre", "padre", "abuelo(a)", "cuidador(a)", "docente", "adolescente", "adulto neurodivergente", "otro"]
@@ -290,7 +343,10 @@ with st.sidebar:
     else:
         st.info("Antes de comenzar, registra un perfil básico.")
         with st.form("form_onboarding"):
-            rol_new = st.selectbox("¿Cómo te identificas dentro de esta situación?", ["madre", "padre", "abuelo(a)", "cuidador(a)", "docente", "adolescente", "adulto neurodivergente", "otro"])
+            rol_new = st.selectbox(
+                "¿Cómo te identificas dentro de esta situación?",
+                ["madre", "padre", "abuelo(a)", "cuidador(a)", "docente", "adolescente", "adulto neurodivergente", "otro"],
+            )
             nombre_new = st.text_input("Nombre o cómo te gustaría que te llame NeuroGuía")
             estado_new = st.text_input("Estado o región", "Hidalgo")
             red_new = st.selectbox("¿Cuentas con red de apoyo?", ["sí", "no", "parcialmente"])
@@ -315,7 +371,7 @@ with st.sidebar:
             st.rerun()
         st.stop()
 
-perfil = load_profile().iloc[0].to_dict()
+perfil = get_active_profile()
 rol = perfil.get("rol_usuario", "madre")
 estado = perfil.get("estado_referencia", "Hidalgo")
 red = perfil.get("red_apoyo", "sí")
@@ -335,38 +391,91 @@ with st.sidebar:
         utilidad = st.radio("¿Te fue útil esta conversación?", ["sí", "más o menos", "no"], horizontal=True)
         col_a, col_b = st.columns(2)
         with col_a:
-            if st.button("Guardar"):
+            if st.button("Guardar cierre"):
                 ensure_session_started(rol, estado)
                 save_session_feedback(percepcion, utilidad)
                 st.success("Quedó guardado.")
         with col_b:
-            if st.button("Nueva"):
+            if st.button("Nueva sesión"):
                 start_new_session()
                 st.rerun()
 
-name_fragment = f", {display_name}" if display_name else ""
-st.markdown('<div class="shell">', unsafe_allow_html=True)
-st.markdown('<div class="brand">NeuroGuía híbrido · tesis</div>', unsafe_allow_html=True)
-st.markdown('<div class="title">NeuroGuía</div>', unsafe_allow_html=True)
+session_status = "Activa" if st.session_state.session_started else "Lista"
+last_result = st.session_state.last_result
+emotion = last_result.emocion if last_result else "Sin análisis"
+topic = topic_to_human(last_result.topic) if last_result else "Sin tema"
+source = last_result.fuente_respuesta if last_result else "Sin respuesta"
+intensity = intensity_label(last_result.intensidad) if last_result else "Sin intensidad"
+
 st.markdown(
-    f'<div class="subtitle">Hola{name_fragment}. Este espacio busca acompañarte con calidez, claridad y pasos posibles. Puedes escribir como hablas, sin seguir un formato especial.</div>',
+    f'''
+    <div class="brandbar">
+        <div class="brandtitle">NeuroGuía</div>
+        <div class="brandsub">Sistema híbrido de apoyo socioemocional no clínico para contextos de neurodivergencia. Diseñado para acompañar con calidez, claridad y orientación práctica.</div>
+    </div>
+    ''',
     unsafe_allow_html=True,
 )
-st.markdown(
-    '<div class="privacy"><strong>Privacidad y cuidado.</strong> Este espacio orienta y acompaña; no sustituye atención clínica ni evaluación profesional.</div>',
-    unsafe_allow_html=True,
-)
-st.markdown("</div>", unsafe_allow_html=True)
 
-if not st.session_state.messages:
-    saludo_inicial = ng_engine.build_welcome_message(display_name=display_name, role=rol, user_memory=user_memory)
-    st.session_state.messages.append(("assistant", saludo_inicial))
+m1, m2, m3, m4 = st.columns(4)
+with m1:
+    st.markdown(f'<div class="metric-card"><div class="metric-label">Sesión</div><div class="metric-value">{session_status}</div></div>', unsafe_allow_html=True)
+with m2:
+    st.markdown(f'<div class="metric-card"><div class="metric-label">Perfil activo</div><div class="metric-value">{rol}</div></div>', unsafe_allow_html=True)
+with m3:
+    st.markdown(f'<div class="metric-card"><div class="metric-label">Tema actual</div><div class="metric-value">{topic}</div></div>', unsafe_allow_html=True)
+with m4:
+    st.markdown(f'<div class="metric-card"><div class="metric-label">Fuente</div><div class="metric-value">{source}</div></div>', unsafe_allow_html=True)
 
-for role_name, msg in st.session_state.messages:
-    with st.chat_message(role_name):
-        st.markdown(msg)
+left, right = st.columns([3.3, 1.4], gap="large")
 
-prompt = st.chat_input("Cuéntame qué está pasando. Ej. Tengo un alumno con TEA y no sé cómo intervenir sin empeorar el momento.")
+with left:
+    st.markdown('<div class="panel-card">', unsafe_allow_html=True)
+    st.markdown('<div class="soft-badge">Chat de acompañamiento</div>', unsafe_allow_html=True)
+    saludo = f"Hola, {display_name}" if display_name else "Hola"
+    st.markdown(
+        f'<div class="helper-box">{saludo}. Puedes escribir tal como hablas. Cuando ya haya suficiente contexto, NeuroGuía intentará responder con orientación concreta y no con preguntas repetitivas.</div>',
+        unsafe_allow_html=True,
+    )
+    st.markdown('<div class="chat-shell">', unsafe_allow_html=True)
+
+    if not st.session_state.messages:
+        saludo_inicial = ng_engine.build_welcome_message(display_name=display_name, role=rol, user_memory=user_memory)
+        st.session_state.messages.append(("assistant", saludo_inicial))
+
+    for role_name, msg in st.session_state.messages:
+        with st.chat_message(role_name):
+            st.markdown(msg)
+
+    st.markdown("</div>", unsafe_allow_html=True)
+    st.markdown("</div>", unsafe_allow_html=True)
+
+with right:
+    st.markdown('<div class="panel-card"><div class="panel-title">Estado actual</div>', unsafe_allow_html=True)
+    st.markdown(
+        f'<div class="status-box"><div class="status-label">Emoción detectada</div><div class="status-value">{emotion}</div></div>',
+        unsafe_allow_html=True,
+    )
+    st.markdown(
+        f'<div class="status-box"><div class="status-label">Intensidad emocional</div><div class="status-value">{intensity}</div></div>',
+        unsafe_allow_html=True,
+    )
+    st.markdown(
+        f'<div class="status-box"><div class="status-label">Tema detectado</div><div class="status-value">{topic}</div></div>',
+        unsafe_allow_html=True,
+    )
+    strategy = last_result.protocolo if last_result else "Acompañamiento inicial"
+    st.markdown(
+        f'<div class="status-box"><div class="status-label">Estrategia aplicada</div><div class="status-value">{strategy}</div></div>',
+        unsafe_allow_html=True,
+    )
+    st.markdown(
+        '<div class="privacy-note"><strong>Privacidad y cuidado.</strong> Este espacio orienta y acompaña; no sustituye atención clínica ni evaluación profesional.</div>',
+        unsafe_allow_html=True,
+    )
+    st.markdown("</div>", unsafe_allow_html=True)
+
+prompt = st.chat_input("Escribe aquí lo que está pasando...")
 
 if prompt:
     try:
@@ -393,7 +502,6 @@ if prompt:
         save_memory_updates(result.memory_updates.get("items", []))
         save_interaction(prompt, result, rol, estado)
         st.rerun()
-
     except Exception as exc:
         with st.chat_message("assistant"):
             st.error("Perdón, algo se atoró al procesar tu mensaje. Intenta de nuevo en unos segundos.")
