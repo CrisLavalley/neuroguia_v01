@@ -1,144 +1,1071 @@
-[
-  {
-    "id": "protocolo_vinculo_familiar",
-    "topic": "vinculo_familiar",
-    "title": "Reconstrucción del vínculo sin presión",
-    "keywords": [
-      "acercarme",
-      "conectar",
-      "cariñosos",
-      "vinculo",
-      "hijos",
-      "nietos",
-      "afecto",
-      "relacion"
+{
+  "meta": {
+    "project": "NeuroGuía",
+    "version": "protocol-bank-expanded-v1",
+    "language": "es",
+    "approach": "no_clinico_neurodiversidad_afirmativa",
+    "purpose": "Banco protocolario ampliado para respuestas sólidas sin depender del LLM. Orientado a apoyo socioemocional, familiar, escolar y de autocuidado, sin sustituir evaluación profesional.",
+    "notes": [
+      "La neurodivergencia se aborda desde un enfoque de diversidad humana y modelo social.",
+      "Este banco no diagnostica ni prescribe; organiza señales, apoyos y lenguaje cuidadoso.",
+      "Incluye condiciones ampliamente reconocidas y algunas condiciones frecuentemente incluidas en marcos amplios de neurodivergencia o discusión clínica-social."
     ],
-    "lead": "Cuando hay AACC, TEA o TDAH, el vínculo suele fortalecerse mejor con presencia predecible y amable que con conversaciones largas o presión emocional.",
-    "actions": [
-      "Empieza desde algo que sí les interese, no desde una exigencia afectiva.",
-      "Usa acercamientos breves: un comentario amable, sentarte cerca o acompañar una actividad.",
-      "Evita preguntas muy amplias o seguidas cuando notes saturación.",
-      "Crea pequeños rituales repetidos, como una frase, una lectura corta o un momento fijo del día."
-    ],
-    "why_it_helps": "Baja la sensación de presión, aumenta seguridad relacional y permite que la cercanía aparezca de forma más natural.",
-    "closing": "Si lo necesitas, esto se puede convertir en una rutina sencilla para casa."
+    "updated_at": "2026-04-05"
   },
-  {
-    "id": "protocolo_sueno",
-    "topic": "sueno",
-    "title": "Acompañamiento inicial para sueño e insomnio",
-    "keywords": [
-      "duerme",
-      "insomnio",
-      "noche",
-      "sueno",
-      "sueño",
-      "conciliar",
-      "dormir"
+  "global_principles": [
+    {
+      "id": "P01",
+      "title": "Modelo social y de neurodiversidad",
+      "guideline": "Los desafíos no provienen solo de la neurología individual, sino también de entornos no adaptados, apoyos insuficientes y expectativas inflexibles."
+    },
+    {
+      "id": "P02",
+      "title": "No patologizar lo diferente",
+      "guideline": "Evitar lenguaje que presente a la persona como un problema. Describir necesidades, barreras, detonantes, fortalezas y apoyos."
+    },
+    {
+      "id": "P03",
+      "title": "Perfil individual antes que etiqueta",
+      "guideline": "La etiqueta orienta, pero el apoyo se ajusta al perfil: edad, contexto, comunicación, sueño, demandas sensoriales, funciones ejecutivas y red de apoyo."
+    },
+    {
+      "id": "P04",
+      "title": "Priorizar regulación y seguridad",
+      "guideline": "Ante saturación, desborde, shutdown o tics intensos, primero bajar exigencia, estímulos y público. Después conversar."
+    },
+    {
+      "id": "P05",
+      "title": "Ajustes razonables",
+      "guideline": "Ofrecer opciones reales de acceso, comunicación, tiempo, evaluación, descanso sensorial y organización."
+    },
+    {
+      "id": "P06",
+      "title": "Banco local primero",
+      "guideline": "La respuesta base debe poder salir de este banco: comprensión breve + 3 a 5 acciones concretas + límites no clínicos."
+    },
+    {
+      "id": "P07",
+      "title": "No clínico",
+      "guideline": "No dar diagnóstico, medicación ni terapia específica. Sí ordenar señales, explicar detonantes probables, sugerir adaptaciones y recomendar consulta cuando hay riesgo o deterioro importante."
+    }
+  ],
+  "cross_cutting_modules": {
+    "semantic_compression": {
+      "fields": [
+        "rol_usuario",
+        "edad_aproximada",
+        "condicion_mencionada",
+        "tema_principal",
+        "emocion_dominante",
+        "objetivo_del_usuario",
+        "detonantes",
+        "contexto",
+        "urgencia",
+        "necesita_llm"
+      ],
+      "heuristics": [
+        "Extraer condición o perfil mencionado explícitamente: TEA, TDAH, AACC, dislexia, etc.",
+        "Reducir mensaje libre a una síntesis breve tipo: quién + qué pasa + qué duele + qué se busca.",
+        "Marcar detonantes si aparecen: ruido, cambio, tarea, pantalla, sueño, presión social, conflicto.",
+        "Clasificar urgencia en: baja, media, alta. Riesgo alto activa salida local de seguridad."
+      ]
+    },
+    "base_response_shape": {
+      "template": [
+        "1. Validación breve y específica.",
+        "2. Lectura funcional: qué podría estar pasando sin diagnosticar.",
+        "3. Tres a cinco apoyos concretos aplicables hoy.",
+        "4. Cierre opcional con una sola propuesta siguiente."
+      ]
+    },
+    "non_clinical_limits": [
+      "No confirmar ni negar diagnósticos.",
+      "No sugerir medicación, dosis o suspensión de tratamiento.",
+      "No reemplazar crisis services o atención presencial si hay riesgo alto.",
+      "No prometer resultados; ofrecer experimentos pequeños, observación y ajustes."
     ],
-    "lead": "En muchos perfiles neurodivergentes, el sueño se altera por sobrecarga sensorial, ansiedad anticipatoria, hiperfoco o rutinas poco previsibles.",
-    "actions": [
-      "Observa qué ocurre en la hora previa a dormir: pantallas, ruido, discusiones, hambre o ansiedad.",
-      "Reduce estímulos progresivamente y mantén una secuencia breve y repetible antes de acostarse.",
-      "Evita convertir la cama en un espacio de regaño, negociación larga o presión.",
-      "Registra durante varios días si hay patrones de horario, detonantes o señales previas."
-    ],
-    "why_it_helps": "Permite identificar detonantes y crear una sensación de previsibilidad, que suele facilitar el inicio del sueño.",
-    "closing": "Después se puede traducir esto a una rutina concreta para la edad y dinámica familiar."
+    "risk_flags_general": [
+      "autolesión o ideación suicida",
+      "agresión con riesgo físico inminente",
+      "convulsión o dificultad respiratoria",
+      "insomnio extremo sostenido con deterioro importante",
+      "pérdida marcada de habilidades o regresión preocupante",
+      "restricción alimentaria severa o deshidratación",
+      "signos de abuso, negligencia o violencia"
+    ]
   },
-  {
-    "id": "protocolo_escuela_inclusiva",
-    "topic": "escuela_inclusiva",
-    "title": "Intervención breve para aula inclusiva",
-    "keywords": [
-      "escuela",
-      "maestra",
-      "docente",
-      "clase",
-      "alumno",
-      "companeros",
-      "compañeros",
-      "salon",
-      "salón"
-    ],
-    "lead": "En el aula, muchas conductas no son solo desafío; también pueden expresar saturación, frustración comunicativa o necesidad de ajuste.",
-    "actions": [
-      "Primero baja estímulos y protege al grupo antes de corregir o razonar.",
-      "Usa una instrucción corta, clara y repetible.",
-      "Evita corregir en público cuando el alumno ya está muy activado.",
-      "Observa qué pasó justo antes para detectar detonantes y prevenir el siguiente episodio."
-    ],
-    "why_it_helps": "Disminuye la escalada, preserva la dignidad del alumno y facilita una intervención más reguladora que punitiva.",
-    "closing": "Si quieres, después se convierte esto en una estrategia breve de aula."
-  },
-  {
-    "id": "protocolo_sobrecarga_sensorial",
-    "topic": "sobrecarga_sensorial",
-    "title": "Apoyo inicial ante sobrecarga sensorial",
-    "keywords": [
-      "sensorial",
-      "ruido",
-      "luces",
-      "sobrecarga",
-      "estimulos",
-      "estímulos",
-      "hipersensibilidad"
-    ],
-    "lead": "La sobrecarga sensorial puede sentirse como una emergencia real. No se resuelve pidiendo calma de inmediato, sino reduciendo demanda y estímulos.",
-    "actions": [
-      "Reduce ruido, luz o movimiento si es posible.",
-      "Habla poco y con tono estable.",
-      "Evita tocar o insistir demasiado si la persona está saturada.",
-      "Permite un espacio de pausa antes de pedir explicación o conversación."
-    ],
-    "why_it_helps": "Baja la exigencia del sistema nervioso y facilita que la persona recupere regulación antes de interactuar.",
-    "closing": "Luego se puede identificar qué estímulos concretos disparan estos momentos."
-  },
-  {
-    "id": "protocolo_cansancio_cuidador",
-    "topic": "cansancio_cuidador",
-    "title": "Contención inicial para cuidador rebasado",
-    "keywords": [
-      "agotada",
-      "agotado",
-      "rebasada",
-      "rebasado",
-      "cansada",
-      "cansado",
-      "ya no puedo",
-      "me rebasa"
-    ],
-    "lead": "El cansancio del cuidador no es falta de amor; muchas veces es saturación sostenida, exigencia constante y poco descanso real.",
-    "actions": [
-      "Elige una sola prioridad para hoy; no intentes resolver todo al mismo tiempo.",
-      "Baja la autoexigencia y distingue lo urgente de lo importante.",
-      "Busca un microespacio de pausa, aunque sea de pocos minutos, sin usarlo para otra tarea.",
-      "Si hay red de apoyo, pide ayuda concreta y específica, no una ayuda vaga."
-    ],
-    "why_it_helps": "Reduce la sensación de fracaso global y devuelve una mínima sensación de control sobre el día.",
-    "closing": "Después se puede ordenar esto en un plan pequeño de autocuidado realista."
-  },
-  {
-    "id": "protocolo_shutdown",
-    "topic": "shutdown",
-    "title": "Apoyo inicial ante cierre o apagamiento",
-    "keywords": [
-      "se encierra",
-      "no me habla",
-      "shutdown",
-      "callado",
-      "silencio",
-      "aisla",
-      "aísla"
-    ],
-    "lead": "Cuando hay cierre o apagamiento, insistir mucho en hablar puede aumentar la presión. Primero conviene ofrecer seguridad y poca demanda.",
-    "actions": [
-      "Valida lo que observas sin invadir: 'veo que hoy necesitas más espacio'.",
-      "Reduce preguntas abiertas en ese momento.",
-      "Ofrece opciones pequeñas y concretas, no decisiones grandes.",
-      "Vuelve a intentar el acercamiento más tarde, con calma y sin reproche."
-    ],
-    "why_it_helps": "Permite que la persona no se sienta perseguida ni obligada a responder cuando su energía está baja.",
-    "closing": "Si quieres, luego se convierte esto en una guía de frases breves para usar en casa."
-  }
-]
+  "conditions": [
+    {
+      "id": "AACC",
+      "name": "Altas Capacidades Cognitivas",
+      "aliases": [
+        "AACC",
+        "superdotación",
+        "altas capacidades",
+        "giftedness"
+      ],
+      "group": "perfil_cognitivo",
+      "status_in_neurodiversity": "ampliamente incluido",
+      "description": "Perfil de desarrollo con procesamiento rápido, curiosidad intensa, pensamiento profundo y, a menudo, asincronía entre capacidad cognitiva, madurez emocional y habilidades ejecutivas.",
+      "core_features": [
+        "curiosidad intensa y preguntas complejas",
+        "aprendizaje rápido en áreas de interés",
+        "sensibilidad a la injusticia o incoherencia",
+        "perfeccionismo o frustración intensa",
+        "asincronía: pensar muy por delante de la autorregulación"
+      ],
+      "common_support_needs": [
+        "reto intelectual con acompañamiento emocional",
+        "explicaciones lógicas y honestas",
+        "evitar aburrimiento crónico y sobrecarga por exceso de demanda",
+        "apoyo en tolerancia a la frustración y flexibilidad"
+      ],
+      "strengths": [
+        "pensamiento abstracto",
+        "creatividad",
+        "conexión de ideas",
+        "profundidad de interés"
+      ],
+      "common_misreadings": [
+        "se interpreta como soberbia o rebeldía cuando puede haber necesidad de sentido y coherencia",
+        "se interpreta como madurez total cuando aún hay necesidades emocionales infantiles"
+      ],
+      "home_support": [
+        "validar la intensidad emocional sin ridiculizarla",
+        "ofrecer espacios para intereses profundos sin que todo gire a rendimiento",
+        "usar preguntas abiertas y colaboración más que imposición"
+      ],
+      "school_support": [
+        "enriquecimiento curricular, compactación o proyectos más complejos",
+        "permitir profundidad, creatividad y elección cuando sea posible",
+        "evitar castigar el aburrimiento sin revisar ajuste de reto"
+      ],
+      "conversation_guidelines": {
+        "do": [
+          "reconocer la intensidad y el cansancio mental",
+          "dar razones, no solo órdenes",
+          "combinar estructura con autonomía"
+        ],
+        "avoid": [
+          "'eres muy inteligente, deberías poder con todo'",
+          "'estás exagerando'"
+        ]
+      },
+      "quick_protocol": {
+        "if_user_asks_general_help": [
+          "explica que capacidad alta no elimina necesidades emocionales ni ejecutivas",
+          "sugiere reto intelectual dosificado y apoyo en regulación",
+          "propón revisar momentos de aburrimiento, perfeccionismo y desconexión"
+        ]
+      }
+    },
+    {
+      "id": "TEA",
+      "name": "Trastorno del Espectro Autista",
+      "aliases": [
+        "TEA",
+        "autismo",
+        "CEA"
+      ],
+      "group": "neurodesarrollo",
+      "status_in_neurodiversity": "ampliamente incluido",
+      "description": "Condición del neurodesarrollo con diferencias en comunicación, interacción social, flexibilidad y procesamiento sensorial; el perfil de apoyo varía ampliamente entre personas.",
+      "core_features": [
+        "diferencias en comunicación social",
+        "necesidad de predictibilidad y claridad",
+        "intereses intensos o especializados",
+        "conductas repetitivas o de autorregulación",
+        "hiper o hiposensibilidad sensorial"
+      ],
+      "common_support_needs": [
+        "anticipación y estructura",
+        "reducción de ambigüedad",
+        "respeto al ritmo de respuesta",
+        "descansos sensoriales"
+      ],
+      "strengths": [
+        "detalle",
+        "honestidad",
+        "constancia",
+        "intereses profundos"
+      ],
+      "common_misreadings": [
+        "se interpreta como desinterés afectivo cuando puede ser saturación o distinto estilo comunicativo",
+        "se interpreta como mala conducta lo que puede ser desregulación o dolor sensorial"
+      ],
+      "home_support": [
+        "usar lenguaje claro y predecible",
+        "preparar transiciones y cambios con anticipación",
+        "respetar necesidad de retiro sin leerla como rechazo personal"
+      ],
+      "school_support": [
+        "instrucciones concretas",
+        "ajustes sensoriales y pausas",
+        "menos exposición pública durante momentos de saturación",
+        "apoyos visuales y tiempo adicional para transición"
+      ],
+      "conversation_guidelines": {
+        "do": [
+          "describir lo observado sin juicio",
+          "dar una opción a la vez",
+          "bajar estímulos antes de explicar"
+        ],
+        "avoid": [
+          "'me estás manipulando'",
+          "'mírame a los ojos si me quieres escuchar'"
+        ]
+      },
+      "quick_protocol": {
+        "meltdown": [
+          "reducir ruido, mirada pública y exigencia verbal",
+          "usar una frase corta y calmada",
+          "no regañar ni razonar durante el pico",
+          "retomar después con lenguaje simple"
+        ],
+        "shutdown": [
+          "bajar demanda, permitir silencio y presencia tranquila",
+          "ofrecer agua, espacio y tiempo",
+          "evitar interrogatorio"
+        ]
+      }
+    },
+    {
+      "id": "TDAH",
+      "name": "Trastorno por Déficit de Atención e Hiperactividad",
+      "aliases": [
+        "TDAH",
+        "ADHD",
+        "déficit de atención",
+        "deficit de atencion"
+      ],
+      "group": "neurodesarrollo",
+      "status_in_neurodiversity": "ampliamente incluido",
+      "description": "Perfil neurológico con diferencias en atención sostenida, impulsividad y regulación del movimiento; puede coexistir con hiperfoco e intensa creatividad.",
+      "core_features": [
+        "dificultad para sostener atención en tareas poco estimulantes",
+        "inquietud motora o mental",
+        "impulsividad",
+        "problemas de organización y memoria de trabajo",
+        "hiperfoco en intereses de alto valor"
+      ],
+      "common_support_needs": [
+        "instrucciones fragmentadas",
+        "recordatorios externos",
+        "apoyo en inicio de tareas y transición",
+        "pausas de movimiento"
+      ],
+      "strengths": [
+        "creatividad",
+        "energía",
+        "respuesta rápida",
+        "pensamiento asociativo"
+      ],
+      "common_misreadings": [
+        "se interpreta como flojera lo que puede ser dificultad de iniciación",
+        "se interpreta como falta de interés lo que puede ser desajuste entre demanda y sistema atencional"
+      ],
+      "home_support": [
+        "usar listas visibles y pasos cortos",
+        "trabajar junto a la persona al iniciar tareas",
+        "reducir reproches globales y usar retroalimentación breve"
+      ],
+      "school_support": [
+        "bloques breves, ayudas visuales, tiempos parciales",
+        "permitir movimiento funcional",
+        "poner por escrito instrucciones clave"
+      ],
+      "conversation_guidelines": {
+        "do": [
+          "señalar una sola prioridad",
+          "usar tono concreto y amable",
+          "validar el esfuerzo invisible"
+        ],
+        "avoid": [
+          "'si quisieras, podrías'",
+          "'deja de ser flojo'"
+        ]
+      }
+    },
+    {
+      "id": "DISLEXIA",
+      "name": "Dislexia",
+      "aliases": [
+        "dislexia"
+      ],
+      "group": "aprendizaje",
+      "status_in_neurodiversity": "ampliamente incluido",
+      "description": "Dificultad específica del aprendizaje relacionada con la decodificación lectora, fluidez y, a veces, ortografía, sin relación con la inteligencia.",
+      "core_features": [
+        "dificultad para decodificar palabras",
+        "lectura lenta o fatigante",
+        "errores ortográficos persistentes",
+        "esfuerzo alto para tareas de lectura"
+      ],
+      "common_support_needs": [
+        "acceso a lectura asistida o audiotexto",
+        "más tiempo",
+        "evaluar comprensión sin depender solo de lectura veloz"
+      ],
+      "strengths": [
+        "pensamiento visual",
+        "creatividad",
+        "resolución global"
+      ],
+      "home_support": [
+        "no usar la lectura como medida global de capacidad",
+        "acompañar con lectura compartida o audio",
+        "cuidar la autoestima académica"
+      ],
+      "school_support": [
+        "tipografías claras, segmentación visual",
+        "lectura en voz alta solo si la persona quiere",
+        "más tiempo y formatos alternativos"
+      ],
+      "conversation_guidelines": {
+        "do": [
+          "separar dificultad lectora de inteligencia",
+          "reconocer esfuerzo"
+        ],
+        "avoid": [
+          "'no pusiste atención cuando te enseñaron'",
+          "'lees así porque no practicas'"
+        ]
+      }
+    },
+    {
+      "id": "DISCALCULIA",
+      "name": "Discalculia",
+      "aliases": [
+        "discalculia"
+      ],
+      "group": "aprendizaje",
+      "status_in_neurodiversity": "ampliamente incluido",
+      "description": "Dificultad específica para comprender magnitudes, operaciones y sentido numérico.",
+      "core_features": [
+        "problemas con cantidades y magnitudes",
+        "confusión con secuencias numéricas o tiempo",
+        "alto esfuerzo en cálculo básico"
+      ],
+      "common_support_needs": [
+        "material visual y manipulativo",
+        "tiempo adicional",
+        "menos presión por velocidad"
+      ],
+      "home_support": [
+        "usar apoyos concretos y cotidianos",
+        "evitar burlas o comparaciones"
+      ],
+      "school_support": [
+        "mostrar proceso paso a paso",
+        "permitir calculadora según objetivo",
+        "evaluar razonamiento además de resultado"
+      ],
+      "conversation_guidelines": {
+        "do": [
+          "normalizar la dificultad sin humillar",
+          "usar ejemplos concretos"
+        ],
+        "avoid": [
+          "'las matemáticas son fáciles si te esfuerzas'"
+        ]
+      }
+    },
+    {
+      "id": "DISGRAFIA",
+      "name": "Disgrafía",
+      "aliases": [
+        "disgrafía",
+        "disgrafia"
+      ],
+      "group": "aprendizaje",
+      "status_in_neurodiversity": "ampliamente incluido",
+      "description": "Dificultad en la expresión escrita, grafomotricidad, ortografía o organización escrita de ideas.",
+      "core_features": [
+        "escritura a mano lenta o poco legible",
+        "dolor o fatiga al escribir",
+        "dificultad para organizar ideas por escrito"
+      ],
+      "common_support_needs": [
+        "teclado o dictado",
+        "más tiempo",
+        "formatos alternativos de respuesta"
+      ],
+      "home_support": [
+        "separar idea de caligrafía",
+        "permitir apoyos tecnológicos"
+      ],
+      "school_support": [
+        "aceptar respuestas orales o digitales cuando proceda",
+        "rúbricas que no castiguen forma sobre contenido"
+      ],
+      "conversation_guidelines": {
+        "do": [
+          "valorar el contenido",
+          "reducir vergüenza"
+        ],
+        "avoid": [
+          "'tu letra dice quién eres'"
+        ]
+      }
+    },
+    {
+      "id": "DISPRAXIA",
+      "name": "Dispraxia / Trastorno del Desarrollo de la Coordinación",
+      "aliases": [
+        "dispraxia",
+        "tdc",
+        "trastorno del desarrollo de la coordinación",
+        "dyspraxia"
+      ],
+      "group": "motricidad_y_planificacion",
+      "status_in_neurodiversity": "ampliamente incluido",
+      "description": "Condición que afecta coordinación motora, secuenciación y planificación de acciones físicas.",
+      "core_features": [
+        "torpeza motora aparente",
+        "dificultad en motricidad fina o gruesa",
+        "esfuerzo alto para tareas físicas secuenciales"
+      ],
+      "common_support_needs": [
+        "tiempo extra y práctica guiada",
+        "descomponer tareas físicas",
+        "menos presión pública en ejecución motora"
+      ],
+      "home_support": [
+        "evitar ridiculizar la torpeza",
+        "modelar paso a paso"
+      ],
+      "school_support": [
+        "adaptar educación física y escritura",
+        "no penalizar solo velocidad o coordinación"
+      ],
+      "conversation_guidelines": {
+        "do": [
+          "usar demostraciones concretas",
+          "permitir ensayo sin juicio"
+        ],
+        "avoid": [
+          "'parece que lo haces a propósito'"
+        ]
+      }
+    },
+    {
+      "id": "TOURETTE",
+      "name": "Síndrome de Tourette",
+      "aliases": [
+        "tourette",
+        "síndrome de tourette",
+        "sindrome de tourette"
+      ],
+      "group": "tics_y_movimiento",
+      "status_in_neurodiversity": "ampliamente incluido",
+      "description": "Trastorno neurológico caracterizado por tics motores y vocales involuntarios.",
+      "core_features": [
+        "movimientos o sonidos involuntarios",
+        "variación según estrés, cansancio o esfuerzo de contención"
+      ],
+      "common_support_needs": [
+        "menos exposición pública y menos vergüenza",
+        "explicaciones a entorno para reducir burlas",
+        "posibilidad de pausas"
+      ],
+      "home_support": [
+        "no ordenar 'deja de hacerlo' como si fuera voluntario",
+        "revisar estrés y cansancio"
+      ],
+      "school_support": [
+        "permitir pausas o salidas breves",
+        "evitar castigos por tics"
+      ],
+      "conversation_guidelines": {
+        "do": [
+          "hablar del tic sin culpa",
+          "proteger dignidad"
+        ],
+        "avoid": [
+          "'contrólate'",
+          "'ya basta'"
+        ]
+      }
+    },
+    {
+      "id": "TPS",
+      "name": "Trastorno del Procesamiento Sensorial",
+      "aliases": [
+        "TPS",
+        "procesamiento sensorial",
+        "trastorno del procesamiento sensorial"
+      ],
+      "group": "sensorial",
+      "status_in_neurodiversity": "ampliamente incluido",
+      "description": "Diferencias importantes en cómo se recibe, modula e interpreta la información sensorial.",
+      "core_features": [
+        "hipersensibilidad o hiposensibilidad a estímulos",
+        "misofonía, fotosensibilidad, selectividad alimentaria o de vestimenta",
+        "búsqueda o evitación de estímulos"
+      ],
+      "common_support_needs": [
+        "entornos más predecibles y regulables",
+        "descansos sensoriales",
+        "opciones de luz, ruido, textura o movimiento"
+      ],
+      "home_support": [
+        "identificar detonantes concretos",
+        "no moralizar la selectividad sensorial"
+      ],
+      "school_support": [
+        "ajustes de asiento, luz, ruido y pausas",
+        "permitir herramientas de autorregulación"
+      ],
+      "conversation_guidelines": {
+        "do": [
+          "nombrar el entorno como parte del problema",
+          "ofrecer opciones"
+        ],
+        "avoid": [
+          "'eres exagerado con los ruidos/texturas'"
+        ]
+      }
+    },
+    {
+      "id": "PAS",
+      "name": "Alta Sensibilidad",
+      "aliases": [
+        "PAS",
+        "persona altamente sensible",
+        "alta sensibilidad"
+      ],
+      "group": "rasgo",
+      "status_in_neurodiversity": "frecuentemente incluido",
+      "description": "Rasgo de alta sensibilidad en procesamiento, emoción y respuesta a estímulos; no es un trastorno.",
+      "core_features": [
+        "procesamiento profundo",
+        "alta empatía e intensidad emocional",
+        "fatiga por sobreestimulación"
+      ],
+      "common_support_needs": [
+        "descanso, pausas, ambientes menos intensos",
+        "lenguaje cuidadoso y tiempo para procesar"
+      ],
+      "home_support": [
+        "respetar cansancio y saturación",
+        "no ridiculizar sensibilidad"
+      ],
+      "school_support": [
+        "cuidar exposición excesiva",
+        "prevenir sobrecarga sensorial/social"
+      ],
+      "conversation_guidelines": {
+        "do": [
+          "validar la intensidad sin patologizar",
+          "diferenciar rasgo de enfermedad"
+        ],
+        "avoid": [
+          "'todo te afecta demasiado por gusto'"
+        ]
+      }
+    },
+    {
+      "id": "DI",
+      "name": "Discapacidad Intelectual",
+      "aliases": [
+        "discapacidad intelectual"
+      ],
+      "group": "desarrollo_intelectual_y_adaptativo",
+      "status_in_neurodiversity": "incluido_en_marcos_amplios",
+      "description": "Limitaciones en funcionamiento intelectual y conducta adaptativa que requieren apoyos ajustados al perfil.",
+      "core_features": [
+        "aprendizaje más lento o más concreto",
+        "necesidad de apoyos funcionales en vida diaria y comprensión"
+      ],
+      "common_support_needs": [
+        "instrucciones concretas y repetibles",
+        "apoyo visual y práctica",
+        "respeto a la autonomía con apoyos"
+      ],
+      "home_support": [
+        "priorizar autonomía progresiva",
+        "evitar sobreprotección total"
+      ],
+      "school_support": [
+        "metas funcionales y accesibles",
+        "apoyos individualizados"
+      ],
+      "conversation_guidelines": {
+        "do": [
+          "hablar claro sin infantilizar",
+          "respetar dignidad y elección"
+        ],
+        "avoid": [
+          "hablar de la persona como si no estuviera presente"
+        ]
+      }
+    },
+    {
+      "id": "SINESTESIA",
+      "name": "Sinestesia",
+      "aliases": [
+        "sinestesia"
+      ],
+      "group": "perfil_sensorial_cognitivo",
+      "status_in_neurodiversity": "frecuentemente incluido",
+      "description": "Experiencia neurológica en la que estímulos de un sentido se asocian consistentemente con experiencias de otro.",
+      "core_features": [
+        "asociaciones sensoriales consistentes, por ejemplo colores con letras o sonidos"
+      ],
+      "common_support_needs": [
+        "comprensión del entorno sin invalidación",
+        "evitar patologizar una experiencia no dañina"
+      ],
+      "home_support": [
+        "tratarlo como diferencia perceptiva, no como rareza que deba ocultarse"
+      ],
+      "school_support": [
+        "considerar que puede ser un apoyo interno o una fuente de distracción según contexto"
+      ],
+      "conversation_guidelines": {
+        "do": [
+          "normalizar si no hay sufrimiento asociado"
+        ],
+        "avoid": [
+          "'eso no existe'"
+        ]
+      }
+    },
+    {
+      "id": "DOWN",
+      "name": "Síndrome de Down",
+      "aliases": [
+        "síndrome de down",
+        "sindrome de down",
+        "trisomía 21",
+        "trisomia 21"
+      ],
+      "group": "genetica_y_desarrollo",
+      "status_in_neurodiversity": "incluido_en_marcos_amplios",
+      "description": "Condición genética asociada con un perfil particular de desarrollo cognitivo, adaptativo y de lenguaje.",
+      "core_features": [
+        "desarrollo más lento en algunas áreas",
+        "fortalezas relacionales frecuentes",
+        "necesidad de apoyos accesibles y consistentes"
+      ],
+      "common_support_needs": [
+        "claridad, repetición, autonomía guiada",
+        "ajustes razonables y metas funcionales"
+      ],
+      "home_support": [
+        "fomentar independencia y elección",
+        "no infantilizar"
+      ],
+      "school_support": [
+        "apoyos visuales y aprendizaje explícito",
+        "ajustes de ritmo y evaluación"
+      ],
+      "conversation_guidelines": {
+        "do": [
+          "centrarte en capacidades y apoyos",
+          "hablar con respeto"
+        ],
+        "avoid": [
+          "paternalismo excesivo"
+        ]
+      }
+    },
+    {
+      "id": "WILLIAMS",
+      "name": "Síndrome de Williams",
+      "aliases": [
+        "síndrome de williams",
+        "sindrome de williams"
+      ],
+      "group": "genetica_y_desarrollo",
+      "status_in_neurodiversity": "incluido_en_marcos_amplios",
+      "description": "Condición genética con perfil cognitivo y social particular; puede coexistir con fortalezas verbales o musicales y necesidades relevantes de apoyo.",
+      "core_features": [
+        "sociabilidad llamativa en algunas personas",
+        "perfil desigual de fortalezas y desafíos"
+      ],
+      "common_support_needs": [
+        "apoyos individualizados",
+        "cuidado del entorno y límites seguros"
+      ],
+      "home_support": [
+        "enseñar seguridad social explícita",
+        "respetar ritmos y necesidades reales"
+      ],
+      "school_support": [
+        "trabajar fortalezas sin ignorar dificultades"
+      ],
+      "conversation_guidelines": {
+        "do": [
+          "separar apariencia sociable de comprensión plena del riesgo"
+        ],
+        "avoid": [
+          "suponer competencia global por simpatía o lenguaje"
+        ]
+      }
+    },
+    {
+      "id": "TOC",
+      "name": "Trastorno Obsesivo-Compulsivo",
+      "aliases": [
+        "TOC",
+        "trastorno obsesivo-compulsivo"
+      ],
+      "group": "procesamiento_cognitivo_y_ansiedad",
+      "status_in_neurodiversity": "frecuentemente incluido_en_marcos_amplios",
+      "description": "Perfil con obsesiones y compulsiones que pueden consumir mucho tiempo y energía; suele incluir rigidez, ansiedad y búsqueda de alivio.",
+      "core_features": [
+        "pensamientos intrusivos",
+        "rituales o comprobaciones",
+        "ansiedad elevada si se interrumpe la secuencia"
+      ],
+      "common_support_needs": [
+        "ambiente no burlón",
+        "menos castigo moral",
+        "acompañamiento profesional cuando interfiere significativamente"
+      ],
+      "home_support": [
+        "evitar discusiones humillantes sobre 'manías'",
+        "observar el nivel de interferencia"
+      ],
+      "school_support": [
+        "cuidar que la vergüenza no agrave la sintomatología",
+        "ajustes si el tiempo se ve impactado"
+      ],
+      "conversation_guidelines": {
+        "do": [
+          "distinguir entre apoyo y sobreacomodación",
+          "recomendar consulta si el deterioro es alto"
+        ],
+        "avoid": [
+          "'solo deja de pensar en eso'"
+        ]
+      }
+    },
+    {
+      "id": "BIPOLAR",
+      "name": "Trastorno Bipolar",
+      "aliases": [
+        "trastorno bipolar",
+        "bipolaridad"
+      ],
+      "group": "regulacion_del_estado_de_animo",
+      "status_in_neurodiversity": "incluido_en_marcos_amplios_con_debate",
+      "description": "Condición de salud mental con episodios de alteración significativa del estado de ánimo y energía. Requiere un enfoque muy prudente y no clínico en esta app.",
+      "core_features": [
+        "cambios intensos de energía, sueño, actividad o ánimo en episodios"
+      ],
+      "common_support_needs": [
+        "rutina, observación prudente, apoyo sin juicio",
+        "consulta profesional cuando hay deterioro importante"
+      ],
+      "home_support": [
+        "observar sueño, riesgo y funcionamiento",
+        "evitar confrontaciones escaladas"
+      ],
+      "school_support": [
+        "ajustes según estado funcional y apoyo coordinado"
+      ],
+      "conversation_guidelines": {
+        "do": [
+          "usar lenguaje prudente",
+          "sugerir atención profesional ante señales de episodio"
+        ],
+        "avoid": [
+          "hacer inferencias diagnósticas o hablar de medicación"
+        ]
+      }
+    },
+    {
+      "id": "TLP",
+      "name": "Trastorno Límite de la Personalidad",
+      "aliases": [
+        "TLP",
+        "borderline",
+        "trastorno límite de la personalidad",
+        "trastorno limite de la personalidad"
+      ],
+      "group": "regulacion_emocional",
+      "status_in_neurodiversity": "incluido_en_marcos_amplios_con_debate",
+      "description": "Condición asociada a intensa sensibilidad emocional, impulsividad e inestabilidad relacional. En esta app debe abordarse con cuidado, límites claros y sin estigma.",
+      "core_features": [
+        "intensidad emocional alta",
+        "miedo al abandono",
+        "dificultades de regulación e impulsividad"
+      ],
+      "common_support_needs": [
+        "validación sin reforzar daño",
+        "límites claros y consistentes",
+        "derivación profesional cuando la interferencia o el riesgo son altos"
+      ],
+      "conversation_guidelines": {
+        "do": [
+          "validar la emoción y bajar la escalada",
+          "usar límites calmados"
+        ],
+        "avoid": [
+          "etiquetar a la persona como manipuladora"
+        ]
+      }
+    },
+    {
+      "id": "EPILEPSIA",
+      "name": "Epilepsia",
+      "aliases": [
+        "epilepsia"
+      ],
+      "group": "neurologica",
+      "status_in_neurodiversity": "incluido_en_marcos_amplios",
+      "description": "Condición neurológica con crisis epilépticas; puede coexistir con necesidades cognitivas, sensoriales y emocionales.",
+      "core_features": [
+        "crisis o antecedentes de crisis",
+        "fatiga o recuperación posterior"
+      ],
+      "common_support_needs": [
+        "seguridad física",
+        "planes de acción conocidos por cuidadores y escuela"
+      ],
+      "conversation_guidelines": {
+        "do": [
+          "priorizar seguridad y seguimiento médico"
+        ],
+        "avoid": [
+          "dar consejos médicos improvisados"
+        ]
+      }
+    },
+    {
+      "id": "TID",
+      "name": "Trastorno de Identidad Disociativo",
+      "aliases": [
+        "TID",
+        "trastorno de identidad disociativo"
+      ],
+      "group": "disociacion",
+      "status_in_neurodiversity": "incluido_en_marcos_amplios_con_debate",
+      "description": "Condición compleja vinculada a disociación importante. NeuroGuía debe responder con máxima prudencia, validación y orientación a apoyo profesional cuando hay deterioro.",
+      "common_support_needs": [
+        "seguridad, calma, no confrontación",
+        "acompañamiento profesional"
+      ],
+      "conversation_guidelines": {
+        "do": [
+          "centrarte en seguridad y estabilidad inmediata"
+        ],
+        "avoid": [
+          "intentar explorar trauma o identidad en detalle"
+        ]
+      }
+    },
+    {
+      "id": "ESQUIZOFRENIA",
+      "name": "Esquizofrenia",
+      "aliases": [
+        "esquizofrenia"
+      ],
+      "group": "procesamiento_psicotico",
+      "status_in_neurodiversity": "incluido_en_marcos_amplios_con_debate",
+      "description": "Condición seria de salud mental. En NeuroGuía solo se aborda desde apoyo prudente, observación y derivación o acompañamiento presencial cuando hay deterioro o riesgo.",
+      "common_support_needs": [
+        "seguridad",
+        "rutina",
+        "apoyo profesional",
+        "menos confrontación"
+      ],
+      "conversation_guidelines": {
+        "do": [
+          "usar lenguaje calmado y concreto"
+        ],
+        "avoid": [
+          "debatir percepciones alteradas como si fuera una discusión lógica"
+        ]
+      }
+    },
+    {
+      "id": "APD",
+      "name": "Trastorno del Procesamiento Auditivo",
+      "aliases": [
+        "APD",
+        "procesamiento auditivo",
+        "trastorno del procesamiento auditivo"
+      ],
+      "group": "procesamiento_sensorial_y_lenguaje",
+      "status_in_neurodiversity": "frecuentemente incluido",
+      "description": "Dificultad para procesar e interpretar información auditiva, especialmente en ambientes con ruido o múltiples estímulos.",
+      "core_features": [
+        "parece no escuchar",
+        "se pierde con instrucciones verbales largas",
+        "mejora con apoyos visuales"
+      ],
+      "common_support_needs": [
+        "instrucciones por escrito",
+        "menos ruido",
+        "una instrucción a la vez"
+      ],
+      "conversation_guidelines": {
+        "do": [
+          "distinguir escuchar de procesar"
+        ],
+        "avoid": [
+          "'te lo dije mil veces y no haces caso'"
+        ]
+      }
+    },
+    {
+      "id": "TCL",
+      "name": "Trastorno del Lenguaje / Dificultades de lenguaje",
+      "aliases": [
+        "trastorno del lenguaje",
+        "TDL",
+        "TEL",
+        "desarrollo del lenguaje"
+      ],
+      "group": "lenguaje_comunicacion",
+      "status_in_neurodiversity": "frecuentemente incluido",
+      "description": "Dificultades relevantes en comprensión y/o expresión del lenguaje que pueden afectar escuela, vínculo y conducta aparente.",
+      "common_support_needs": [
+        "lenguaje simple",
+        "apoyos visuales",
+        "tiempo para responder"
+      ],
+      "conversation_guidelines": {
+        "do": [
+          "suponer que más tiempo puede mejorar la respuesta"
+        ],
+        "avoid": [
+          "confundir dificultad lingüística con desobediencia"
+        ]
+      }
+    },
+    {
+      "id": "TCS",
+      "name": "Trastorno de la Comunicación Social",
+      "aliases": [
+        "pragmatica",
+        "trastorno de la comunicación social",
+        "trastorno de comunicacion social"
+      ],
+      "group": "comunicacion_social",
+      "status_in_neurodiversity": "frecuentemente incluido",
+      "description": "Dificultades para usar el lenguaje en contexto social: turnos, inferencias, intenciones y claves pragmáticas.",
+      "common_support_needs": [
+        "enseñanza explícita de reglas sociales",
+        "menos ambigüedad"
+      ],
+      "conversation_guidelines": {
+        "do": [
+          "ser concreto y explícito"
+        ],
+        "avoid": [
+          "sarcasmo como herramienta de corrección"
+        ]
+      }
+    },
+    {
+      "id": "TARTA",
+      "name": "Tartamudez / Disfluencia",
+      "aliases": [
+        "tartamudez",
+        "disfluencia"
+      ],
+      "group": "habla_comunicacion",
+      "status_in_neurodiversity": "frecuentemente incluido",
+      "description": "Dificultad en la fluidez del habla que puede empeorar con presión, prisa o juicio social.",
+      "common_support_needs": [
+        "tiempo para terminar",
+        "no completar frases sin permiso",
+        "menos presión"
+      ],
+      "conversation_guidelines": {
+        "do": [
+          "escuchar sin prisa"
+        ],
+        "avoid": [
+          "'respira y habla bien' como corrección simplista"
+        ]
+      }
+    },
+    {
+      "id": "NVLD",
+      "name": "Perfil no verbal / Dificultades visoespaciales y pragmáticas",
+      "aliases": [
+        "NVLD",
+        "trastorno del aprendizaje no verbal"
+      ],
+      "group": "aprendizaje_y_social",
+      "status_in_neurodiversity": "frecuentemente incluido",
+      "description": "Perfil con fortalezas verbales y dificultades visoespaciales, motoras o sociales no verbales.",
+      "common_support_needs": [
+        "explicitar lo visual o implícito",
+        "apoyo en mapas, organización espacial e inferencias sociales"
+      ],
+      "conversation_guidelines": {
+        "do": [
+          "hacer explícitas las reglas implícitas"
+        ],
+        "avoid": [
+          "asumir competencia global porque habla bien"
+        ]
+      }
+    }
+  ],
+  "combination_protocols": [
+    {
+      "id": "COMBO_AACC_TEA",
+      "name": "Doble excepcionalidad: AACC + TEA",
+      "patterns": [
+        "alto razonamiento + saturación social",
+        "gran interés intelectual + rigidez o cansancio sensorial",
+        "madurez cognitiva que oculta necesidad de apoyo"
+      ],
+      "supports": [
+        "reto intelectual sin sacrificar regulación",
+        "respeto a intereses intensos",
+        "menos presión social artificial",
+        "lenguaje claro y no invasivo"
+      ]
+    },
+    {
+      "id": "COMBO_TEA_TDAH",
+      "name": "TEA + TDAH",
+      "patterns": [
+        "necesidad de estructura + impulsividad",
+        "dificultad para transición + búsqueda de novedad",
+        "sobrecarga sensorial + desorganización ejecutiva"
+      ],
+      "supports": [
+        "rutinas visibles pero flexibles",
+        "pasos cortos y muy explícitos",
+        "apoyo en inicio de tarea y regulación sensorial"
+      ]
+    },
+    {
+      "id": "COMBO_AACC_TDAH",
+      "name": "AACC + TDAH",
+      "patterns": [
+        "pensamiento veloz + dificultad para ejecutar",
+        "perfeccionismo + inicio tardío o bloqueo",
+        "aburrimiento + impulsividad"
+      ],
+      "supports": [
+        "reto con estructura ligera",
+        "dividir metas grandes",
+        "validar el cansancio ejecutivo"
+      ]
+    }
+  ],
+  "general_query_answers": [
+    {
+      "trigger": "que es la neurodivergencia",
+      "answer": "La neurodivergencia describe diferencias naturales en el funcionamiento neurológico. No parte de que la persona esté 'mal hecha', sino de que su manera de procesar, sentir, aprender o regularse puede diferir del promedio y encontrar barreras en entornos poco adaptados."
+    },
+    {
+      "trigger": "por que es un modelo social",
+      "answer": "Porque los desafíos no dependen solo de la condición, sino también de barreras sociales, educativas, sensoriales y comunicativas. Un entorno más accesible reduce mucho del sufrimiento evitable."
+    },
+    {
+      "trigger": "como apoyar sin diagnosticar",
+      "answer": "Observa el patrón, identifica detonantes, reduce juicio, ajusta entorno y comunicación, y documenta lo que ayuda. Eso ya mejora el día a día sin invadir el terreno clínico."
+    }
+  ]
+}
